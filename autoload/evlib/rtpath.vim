@@ -23,11 +23,11 @@ set cpo&vim
 
 " support functions {{{
 function s:EVDebugScript( msg )
-	return evlib#evdebug#DebugMessage( a:msg )
+	return evlib#debug#DebugMessage( a:msg )
 endfunction
 " }}}
 
-" function evlib#evrtpath#ExtendRuntimePath( path_or_paths [, flags ] ) {{{
+" function evlib#rtpath#ExtendRuntimePath( path_or_paths [, flags ] ) {{{
 "
 " extend runtimepath with each path in the list
 " 	each path is prepended to the current value of 'runtimepath' in the
@@ -51,10 +51,10 @@ endfunction
 "
 " example:
 " # on entry: runtimepath='path1,path2'
-" :call evlib#evrtpath#ExtendRuntimePath( [ 'added1', 'added2' ] )
+" :call evlib#rtpath#ExtendRuntimePath( [ 'added1', 'added2' ] )
 " # on exit: runtimepath='added1,added2,path1,path2,added2/after,added1/after'
-function evlib#evrtpath#ExtendRuntimePath( path_or_paths, ... )
-	let l:debug_message_prefix = 'evlib#evrtpath#ExtendRuntimePath(): '
+function evlib#rtpath#ExtendRuntimePath( path_or_paths, ... )
+	let l:debug_message_prefix = 'evlib#rtpath#ExtendRuntimePath(): '
 
 	if type( a:path_or_paths ) == type( '' )
 		let l:paths = [ a:path_or_paths ]
@@ -137,12 +137,12 @@ function evlib#evrtpath#ExtendRuntimePath( path_or_paths, ... )
 endfunction
 " }}}
 
-" syntax: evlib#evrtpath#CheckVimVersion( vim_version, [ vim_patchlevel [, vim_features ] ] )
+" syntax: evlib#rtpath#CheckVimVersion( vim_version, [ vim_patchlevel [, vim_features ] ] )
 " returns:
 "  == 0: false;
 "  != 0: true;
-function evlib#evrtpath#CheckVimVersion( vim_version, ... )
-	let l:debug_message_prefix = 'evlib#evrtpath#CheckVimVersion(): '
+function evlib#rtpath#CheckVimVersion( vim_version, ... )
+	let l:debug_message_prefix = 'evlib#rtpath#CheckVimVersion(): '
 
 	let l:vim_patchlevel = 0
 	let l:vim_features = []
@@ -174,7 +174,7 @@ function evlib#evrtpath#CheckVimVersion( vim_version, ... )
 endfunction
 
 function s:ExtendVersionedRuntimePath_FilterElement( elem )
-	return evlib#evrtpath#CheckVimVersion( a:elem['ver_main'], a:elem['ver_patch'], a:elem['features'] )
+	return evlib#rtpath#CheckVimVersion( a:elem['ver_main'], a:elem['ver_patch'], a:elem['features'] )
 endfunction
 
 function s:ExtendVersionedRuntimePath_CompareElements( v1, v2 )
@@ -201,9 +201,9 @@ endfunction
 "      * 'one': the most "advanced" (the one referring to the latest version) of the version checks;
 "
 " examples:
-"  * evlib#evrtpath#ExtendVersionedRuntimePath( [ '~/mydir', 'all' ] )
-"     equivalent to: evlib#evrtpath#ExtendVersionedRuntimePath( [ '~/mydir' ] )
-"     equivalent to: evlib#evrtpath#ExtendVersionedRuntimePath( '~/mydir' )
+"  * evlib#rtpath#ExtendVersionedRuntimePath( [ '~/mydir', 'all' ] )
+"     equivalent to: evlib#rtpath#ExtendVersionedRuntimePath( [ '~/mydir' ] )
+"     equivalent to: evlib#rtpath#ExtendVersionedRuntimePath( '~/mydir' )
 "
 " version matching criteria:
 "  for each versioned directory, the format is the following:
@@ -218,8 +218,8 @@ endfunction
 "  * for plugins for vim 7.0 and later (all platforms): '700';
 "  * for plugins for vim 6.3 and later (unix): '603-unix';
 "
-function evlib#evrtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
-	let l:debug_message_prefix = 'evlib#evrtpath#ExtendVersionedRuntimePath(): '
+function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
+	let l:debug_message_prefix = 'evlib#rtpath#ExtendVersionedRuntimePath(): '
 
 	if type( a:path_paths_or_elements ) == type( '' )
 		let l:paths = [ a:path_paths_or_elements ]
@@ -235,7 +235,7 @@ function evlib#evrtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 	"  'version': numeric id representing version (sortable as a number);
 	"    (example: for a directory: '701.3' -> 701.0003 or 7010003)
 	"  'path': path to be considered if adding this element to vim's
-	"   runtime (and others?) -- to call evlib#evrtpath#ExtendRuntimePath()
+	"   runtime (and others?) -- to call evlib#rtpath#ExtendRuntimePath()
 	"   with;
 	"  'ver_main': the "main" part of the version (corresponds to
 	"   v:version);
@@ -395,7 +395,7 @@ function evlib#evrtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		let l:version_list = sort( l:version_list, 's:ExtendVersionedRuntimePath_CompareElements' )
 		" TODO: remove: call s:EVDebugScript( l:debug_message_prefix . 'INFO: sorted list of dictionary entries: ' . string( l:version_list ) )
 
-		" get the list to use in the call to evlib#evrtpath#ExtendRuntimePath() {{{
+		" get the list to use in the call to evlib#rtpath#ExtendRuntimePath() {{{
 		unlet! l:version_list_now
 		unlet! l:paths_runtimedirs
 		let l:paths_runtimedirs = []
@@ -405,7 +405,7 @@ function evlib#evrtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		" }}}
 
 		call s:EVDebugScript( l:debug_message_prefix . 'about to add the following directories to "runtimepath": ' . string( l:paths_runtimedirs ) )
-		call evlib#evrtpath#ExtendRuntimePath( l:paths_runtimedirs )
+		call evlib#rtpath#ExtendRuntimePath( l:paths_runtimedirs )
 	else
 		call s:EVDebugScript( l:debug_message_prefix . 'no remaining directories are to be added to "runtimepath"' )
 	endif

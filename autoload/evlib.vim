@@ -23,7 +23,7 @@ set cpo&vim
 
 " support functions {{{
 function s:EVDebugScript( msg )
-	return evlib#evdebug#DebugMessage( a:msg )
+	return evlib#debug#DebugMessage( a:msg )
 endfunction
 " }}}
 

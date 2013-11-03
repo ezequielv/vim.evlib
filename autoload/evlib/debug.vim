@@ -21,7 +21,7 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
-" debugging ( evlib#evdebug#DebugMessage() ) {{{
+" debugging ( evlib#debug#DebugMessage() ) {{{
 let s:debug_this_script = 0
 if exists( 'g:evlib_debug_enable' )
 	let s:debug_this_script = g:evlib_debug_enable
@@ -39,7 +39,7 @@ if ( s:debug_this_script != '0' )
 	let s:debug_this_script = 1
 endif
 
-function evlib#evdebug#DebugMessage( msg )
+function evlib#debug#DebugMessage( msg )
 	if s:debug_this_script
 		let cmdpref_1 = ( exists( ':unsilent' ) ? ':unsilent ' : '' )
 		" doc: see ':h :unsilent'

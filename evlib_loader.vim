@@ -55,7 +55,7 @@ function s:EnableEVLib( paths )
 		endif
 		exec 'set runtimepath+=' . fnameescape( l:path_found )
 		" FIXME: if evlib#Init() works, consider adding the 'after'
-		"  path, too (should I use evlib#evrtpath#ExtendRuntimePath(),
+		"  path, too (should I use evlib#rtpath#ExtendRuntimePath(),
 		"  or manually add the '/after' path here?)
 		" IDEA: or have 'evlib#Init()' discover its own path (or is it
 		"  in '<sfile>'?), and add the '/after' to the runpath itself
