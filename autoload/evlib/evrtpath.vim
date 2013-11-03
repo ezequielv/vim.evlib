@@ -27,10 +27,23 @@ function s:EVDebugScript( msg )
 endfunction
 " }}}
 
+" function evlib#evrtpath#ExtendRuntimePath( path_or_paths [, flags ] ) {{{
+"
 " extend runtimepath with each path in the list
 " 	each path is prepended to the current value of 'runtimepath' in the
 " 	same order, and '{element}/after' appended after the current value of
 " 	'runtimepath'.
+"
+" flags: one or more of the following
+"
+"  'd': force directory detection: only add existing directories;
+"        (default is to add the entry without checking)
+"  'l': leave entries as they are:
+"        * do not expand vim and system environment variables
+"           (expand() does not get called);
+"  'a': make each directory an absolute path
+"           (fnamemodify( {path}, ':p' ) gets called
+"           for each {path} in the list);
 "
 " notes:
 "
@@ -40,54 +53,89 @@ endfunction
 " # on entry: runtimepath='path1,path2'
 " :call evlib#evrtpath#ExtendRuntimePath( [ 'added1', 'added2' ] )
 " # on exit: runtimepath='added1,added2,path1,path2,added2/after,added1/after'
-" #  (providing all the above directories exist)
-function evlib#evrtpath#ExtendRuntimePath( path_or_paths )
+function evlib#evrtpath#ExtendRuntimePath( path_or_paths, ... )
 	let l:debug_message_prefix = 'evlib#evrtpath#ExtendRuntimePath(): '
 
 	if type( a:path_or_paths ) == type( '' )
 		let l:paths = [ a:path_or_paths ]
 	else
 		if !( type( a:path_or_paths ) == type( [] ) )
-			echoerr 'type of argument path_or_paths is invalid. it should be either a list of strings or a string.'
+			echoerr l:debug_message_prefix . 'type of argument path_or_paths is invalid. it should be either a list of strings or a string.'
 		endif
 		let l:paths = a:path_or_paths
 	endif
+	let l:flags = ( ( a:0 > 0 ) ? a:1 : '' )
+	let l:flag_checkdirectory = ( stridx( l:flags, 'd' ) >= 0 )
+	let l:flag_leavepathalone = ( stridx( l:flags, 'l' ) >= 0 )
+	let l:flag_makeabsolute   = ( stridx( l:flags, 'a' ) >= 0 )
 
 	" NOTE: order is the one you would expect, if this list were to be
 	"  added at the beginning (of the runtimepath list)
 	"
 	" no need to use deepcopy(), as we will not modify the list elements
 	" note: we need a copy because reverse() changes the list 'in place'
-	for path_now in reverse( copy( l:paths ) )
-		" expand variables
-		let path_now = expand( path_now )
-
-		call s:EVDebugScript( l:debug_message_prefix . ' processing directory entry: "' . path_now . '"' )
-
-		" FIXME: deal with directories that are already present in the 'runtimepath'
-		"  (maybe delete the directories that existed from their
-		"  original locations, then add them in the place the caller
-		"  wanted)
-		"
-		" add the "normal" directory {{{
-		if isdirectory( path_now )
-			" remove it if it was present in the list already
-			exec "set runtimepath-=" . path_now
-			" add it in the right place
-			exec "set runtimepath^=" . path_now
+	for l:path_now in reverse( copy( l:paths ) )
+		" apply transformations {{{
+		if ! l:flag_leavepathalone
+			" expand variables
+			let l:path_now = expand( l:path_now )
+		endif
+		if l:flag_makeabsolute
+			" make path absolute (see ':h filename-modifiers')
+			let l:path_now = fnamemodify( l:path_now, ':p' )
+		endif
+		" get rid of the last '/', if there is one
+		if ( len( l:path_now ) > 1 ) && ( l:path_now[ -1: ] == '/' )
+			let l:path_now = l:path_now[ :-2 ]
 		endif
 		" }}}
-		" deal with the "/after" subdir {{{
-		let path_now = path_now . "/after"
-		if isdirectory( path_now )
-			" remove it if it was present in the list already
-			exec "set runtimepath-=" . path_now
-			" add it in the right place
-			exec "set runtimepath+=" . path_now
+
+		" pre-validation {{{
+		if ( len( l:path_now ) == 0 )
+			continue
 		endif
+		" }}}
+
+		call s:EVDebugScript( l:debug_message_prefix . ' processing directory entry: "' . l:path_now . '"' )
+
+		" conditionally add directories to 'runtimepath' {{{
+		for l:stage_elem_now in [
+				\		[ '', '^' ],
+				\		[ '/after', '+' ],
+				\	]
+			" manipulate entry
+			let l:path_now = l:path_now . l:stage_elem_now[ 0 ]
+			" see whether we should process this entry
+			if !( ( !( l:flag_checkdirectory ) || isdirectory( l:path_now ) ) )
+				continue
+			endif
+			let l:path_now_escaped = fnameescape( l:path_now )
+			" remove previous instances of this path from 'runtimepath' {{{
+			for l:stage_path_remove in range( 1, 2 )
+				let l:path_now_to_remove = ''
+				" deal with the entry as it is
+				if ( l:stage_path_remove == 1 )
+					let l:path_now_to_remove = l:path_now
+				elseif ( l:stage_path_remove == 2 )
+					" deal with entries that do not have the trailing '/'
+					if ( len( l:path_now ) > 1 ) && ( l:path_now[ -1: ] == '/' )
+						" get rid of the last '/'
+						let l:path_now_to_remove = l:path_now[ :-2 ]
+					endif
+				endif
+				if ( len( l:path_now_to_remove ) > 0 )
+					" remove it if it was present in the list already
+					exec 'set runtimepath-=' . fnameescape( l:path_now_to_remove )
+				endif
+			endfor
+			" }}}
+			" add it in the right place
+			exec 'set runtimepath' . l:stage_elem_now[ 1 ]  . '=' . l:path_now_escaped
+		endfor
 		" }}}
 	endfor
 endfunction
+" }}}
 
 " syntax: evlib#evrtpath#CheckVimVersion( vim_version, [ vim_patchlevel [, vim_features ] ] )
 " returns:
@@ -180,7 +228,7 @@ function evlib#evrtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		let l:paths = a:path_paths_or_elements
 	endif
 	if !( type( l:paths ) == type( [] ) )
-		echoerr 'evlib#evrtpath#ExtendVersionedRuntimePath(): type of argument path_paths_or_elements is invalid. check this function documentation.'
+		echoerr l:debug_message_prefix . 'type of argument path_paths_or_elements is invalid. check this function documentation.'
 	endif
 	" l:version_list: elements are dictionaries of the following form
 	" ('key': value):
@@ -217,7 +265,7 @@ function evlib#evrtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 			unlet l:paths_element_now_prev
 		endif
 		if !( ( type( l:paths_element_now ) == type( [] ) ) && ( len( l:paths_element_now ) >= 2 ) )
-			echoerr 'list element ' . l:rootdir_order_now . ' is invalid. skipping.'
+			echoerr l:debug_message_prefix . 'list element ' . l:rootdir_order_now . ' is invalid. skipping.'
 			continue
 		endif
 		call s:EVDebugScript( l:debug_message_prefix . ' processing directory entry: "' . string( l:paths_element_now ) . '"' )
