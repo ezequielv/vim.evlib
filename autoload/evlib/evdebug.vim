@@ -21,18 +21,26 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
-
 " debugging ( evlib#evdebug#DebugMessage() ) {{{
-" not_needed: let s:debug_this_script=0
-"let s:debug_this_script=1 " comment this line to disable debugging
-"
-" FIXME: change variable name (remove HDS)
-if exists( '$HDS_VIM_DEBUG' )
-	let s:debug_this_script = expand( '$HDS_VIM_DEBUG' )
+let s:debug_this_script = 0
+if exists( 'g:evlib_debug_enable' )
+	let s:debug_this_script = g:evlib_debug_enable
+elseif exists( '$EVLIB_VIM_DEBUG' )
+	let s:debug_this_script = expand( '$EVLIB_VIM_DEBUG' )
+endif
+" deal with an empty variable value
+if ( len( s:debug_this_script ) == 0 )
+	let s:debug_this_script = 0
+endif
+" normalise: any value that is not the string '0' gets transformed into 1,
+"  so that the comparisons done by this script can be done quickly and
+"  safely
+if ( s:debug_this_script != '0' )
+	let s:debug_this_script = 1
 endif
 
 function evlib#evdebug#DebugMessage( msg )
-	if exists( "s:debug_this_script" ) && s:debug_this_script
+	if s:debug_this_script
 		let cmdpref_1 = ( exists( ':unsilent' ) ? ':unsilent ' : '' )
 		" doc: see ':h :unsilent'
 		exec cmdpref_1 . 'echomsg "[DEBUG]: " . a:msg'
