@@ -40,6 +40,8 @@ call EVLibTest_Do_Batch(
 			\			[ 'test 2 (true)', '1' ],
 			\			[ 'test 3 (false) (skip all: true and false, more groups)', '0', [ 'skiponfail.all' ] ],
 			\			[ 'test 4 (true)', '1' ],
+			\			[ 'test 5 (true)', '1' ],
+			\			[ 'test 6 (true)', '1' ],
 			\			{ 'group': 'group 3' },
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (false)', '0' ],
