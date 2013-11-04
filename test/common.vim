@@ -143,13 +143,21 @@ function EVLibTest_Test_EndCommon( msg_result )
 		" prev: call EVLibTest_Gen_OutputLine( ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ': [' . a:msg_result . ']' )
 		let l:message_start = ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ' '
 		let l:message_end_result = '[' . a:msg_result . ']'
+
+		let l:filler_string_one = '. '
+		let l:filler_string_one_len = strlen( l:filler_string_one )
+		" make the result message suffix a fixed length (multiple of
+		"  l:filler_string_one_len)
+		let l:message_end_padding_len = ( strlen( l:message_end_result ) % l:filler_string_one_len )
+		if ( l:message_end_padding_len != 0 )
+			let l:message_end_result = repeat( ' ', l:message_end_padding_len ) . l:message_end_result
+		endif
+
 		let l:message_unpadded_len = strlen( s:evlib_test_common_output_lineprefix_string ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
 		let l:columns = min( [ &columns, 100 ] ) - 1
 		if ( l:message_unpadded_len < l:columns )
 			let l:filler_len = ( l:columns - l:message_unpadded_len )
-			let l:filler_string_one = '. '
-			let l:filler_string_one_len = strlen( l:filler_string_one )
 			let l:filler_string = repeat( ' ', ( l:filler_len % l:filler_string_one_len ) ) . repeat( l:filler_string_one, ( l:filler_len / l:filler_string_one_len ) )
 		else
 			let l:filler_string = ''
@@ -178,6 +186,7 @@ function EVLibTest_Test_Result( rc, ... )
 		let l:rc_string_to_result_mapping =
 				\	{
 				\		'exception': 'EXCEPTION',
+				\		'didnotthrow': 'DIDNOTTHROW',
 				\		'skipped': 'skipped',
 				\	}
 		if has_key( l:rc_string_to_result_mapping, a:rc )
@@ -219,14 +228,22 @@ endfunction
 "  's': skip rest of tests until the end of the group
 "        (or the end of all tests, if a group is not active);
 "        (default is to carry on);
+"  'S': skip tests until the end of the suite;
+"        (default is to carry on);
+"  't': "expected to throw": the expression/code should throw an exception.
+"        test will only pass if such a thing happens;
 "
 function EVLibTest_Do_Check( test_msg, expr, ... )
 	let l:debug_message_prefix = 'EVLibTest_Do_Check(): '
 
 	let l:flags = ( ( a:0 > 0 ) ? a:1 : '' )
 	let l:flag_execute  = ( stridx( l:flags, 'e' ) >= 0 )
+	" LATER: remove these local variables, as we have no use for them
+	"  IDEA: and use a string/list of flag values to propagate to
+	"   l:test_result_flags
 	let l:flag_skiprest_all = ( stridx( l:flags, 'S' ) >= 0 )
 	let l:flag_skiprest = ( l:flag_skiprest_all || ( stridx( l:flags, 's' ) >= 0 ) )
+	let l:flag_shouldthrow = ( stridx( l:flags, 't' ) >= 0 )
 
 	let l:test_result_flags = ''
 	for l:test_result_flags_mapping_elem_now in
@@ -247,17 +264,30 @@ function EVLibTest_Do_Check( test_msg, expr, ... )
 			echoerr l:debug_message_prefix . 'Funcref objects still not supported. fix the code (common.vim) and try again'
 		elseif type( a:expr ) == type( '' )
 			unlet! l:rc
+			unlet! l:rc_real
+			let l:result_throws = 0
 			try
 				if l:flag_execute
 					silent execute a:expr
 					" successful execution is mapped to a rc != 0
-					let l:rc = 1
+					let l:rc_real = 1
 				else
-					silent let l:rc = eval( a:expr )
+					silent let l:rc_real = eval( a:expr )
 				endif
 			catch
-				let l:rc = 'exception'
+				let l:rc_real = 'exception'
+				let l:result_throws = 1
 			endtry
+			" map test result to what we actually want
+			if l:flag_shouldthrow
+				if l:result_throws
+					let l:rc = 1
+				else
+					let l:rc = 'didnotthrow'
+				endif
+			else
+				let l:rc = l:rc_real
+			endif
 		else
 			echoerr l:debug_message_prefix . 'invalid type for expr. type: ' . string( type( a:expr ) )
 		endif
@@ -282,6 +312,9 @@ endfunction
 "         the group (or the end of all tests, if there is no active group);
 "     * 'skiponfail.all': if this test fails, skip the test until the end of
 "         all tests (even if there is an active group at the time of failure);
+"     * 'code.throws': (see EVLibTest_Do_Check() flag 't')
+"        code is expected to throw an exception (test will only pass
+"        if the code/expression throws);
 "
 " for each element in ths list, EVLibTest_Do_Check() is called, so:
 "  * expr: same format and constraints as that function;
@@ -294,6 +327,7 @@ function EVLibTest_Do_Batch( test_list )
 				\	{
 				\		'skiponfail.local': 's',
 				\		'skiponfail.all': 'S',
+				\		'code.throws': 't',
 				\	}
 	endif
 
