@@ -399,6 +399,32 @@ function EVLibTest_GroupSet_TestLibrary()
 		\		]
 		\	)
 endfunction
+
+let s:evlib_test_common_global_groupset_loadlibrary_start =
+		\		[
+		\			{ 'group': 'library initialisation' },
+		\			[ 'library not intialised yet (safe check)', '! exists( "*evlib#IsInitialised" )' ],
+		\		]
+let s:evlib_test_common_global_groupset_loadlibrary_end =
+		\		[
+		\			[ 'library now intialised', 'exists( "*evlib#IsInitialised" ) && evlib#IsInitialised()', [ 'skiponfail.all' ] ],
+		\		]
+
+function EVLibTest_GroupSet_LoadLibrary_Method_Source()
+	return EVLibTest_Do_Batch(
+				\		s:evlib_test_common_global_groupset_loadlibrary_start
+				\		+
+				\		[
+				\			{ 'test': 'load library by sourcing "evlib_loader.vim"', 'exec': 'source ' . g:evlib_test_common_rootdir . '/evlib_loader.vim' },
+				\		]
+				\		+
+				\		s:evlib_test_common_global_groupset_loadlibrary_end
+				\	)
+endfunction
+
+function EVLibTest_GroupSet_LoadLibrary_Default()
+	return EVLibTest_GroupSet_LoadLibrary_Method_Source()
+endfunction
 " }}}
 
 " boiler plate -- epilog {{{
