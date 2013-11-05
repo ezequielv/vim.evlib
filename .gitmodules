@@ -1,0 +1,3 @@
+[submodule "test/test_trees/vundle.01/bundle/vundle"]
+	path = test/test_trees/vundle.01/bundle/vundle
+	url = https://github.com/gmarik/vundle.git

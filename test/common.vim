@@ -25,6 +25,7 @@ set cpo&vim
 " general variables {{{
 let g:evlib_test_common_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
 let g:evlib_test_common_rootdir = fnamemodify( g:evlib_test_common_testdir, ':h' )
+let g:evlib_test_common_test_testtrees_rootdir = g:evlib_test_common_testdir . '/test_trees'
 
 let g:evlib_test_common_ntests = 0
 let g:evlib_test_common_npass = 0
@@ -57,6 +58,14 @@ endfunction
 let s:evlib_test_common_output_lineprefix_string = 'TEST: '
 function EVLibTest_Gen_OutputLine( msg )
 	echomsg s:evlib_test_common_output_lineprefix_string . a:msg
+endfunction
+
+function EVLibTest_Gen_InfoMsg( msg )
+	return EVLibTest_Gen_OutputLine( 'info: ' . a:msg )
+endfunction
+
+function EVLibTest_Gen_InfoVarValue( varname )
+	return EVLibTest_Gen_InfoMsg( 'variable ' . a:varname . ': ' . string( eval( a:varname ) ) )
 endfunction
 
 function EVLibTest_Gen_GetTestStats()

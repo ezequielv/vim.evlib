@@ -21,7 +21,7 @@ set cpo&vim
 " }}} boiler plate -- prolog
 
 " forward to the script that knows how to load this library
-exec 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h:h' ) . 'evlib_loader.vim' )
+exec 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h:h' ) . '/evlib_loader.vim' )
 
 " boiler plate -- epilog {{{
 
