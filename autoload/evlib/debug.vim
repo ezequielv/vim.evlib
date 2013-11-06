@@ -42,8 +42,8 @@ endif
 function evlib#debug#DebugMessage( msg )
 	if s:debug_this_script
 		let cmdpref_1 = ( exists( ':unsilent' ) ? ':unsilent ' : '' )
-		" doc: see ':h :unsilent'
-		exec cmdpref_1 . 'echomsg "[DEBUG]: " . a:msg'
+		let l:msgpref = ( ( exists( '*strftime' ) ) ? ( ' ' . strftime( '[%Y.%m.%d %H:%M:%S]' ) ) : '' )
+		execute cmdpref_1 . 'echomsg "[DEBUG]" . l:msgpref . ": " . a:msg'
 	endif
 endfunction
 " }}}
