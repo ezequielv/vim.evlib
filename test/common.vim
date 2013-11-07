@@ -37,7 +37,21 @@ function EVLibTest_Start( suite_name )
 	if s:evlib_test_common_in_group_flag || ( g:evlib_test_common_ntests > 0 )
 		call EVLibTest_Finalise()
 	endif
-	call EVLibTest_Gen_OutputLine( 'SUITE: ' . a:suite_name )
+	" note: we could move this outside of this function, and store the result
+	"  in a 's:'-scoped variable
+	" {{{
+	let l:source_name = ''
+	if exists( 'g:evlib_test_common_main_source_file' ) && ( type( g:evlib_test_common_main_source_file ) == type( '' ) )
+		let l:source_name = fnamemodify( g:evlib_test_common_main_source_file, ':p' )
+		for l:replace_elem_now in [
+					\		[ g:evlib_test_common_testdir, '{test}' ],
+					\		[ g:evlib_test_common_rootdir, '{root}' ],
+					\	]
+			let l:source_name = fnamemodify( l:source_name, ':s?' . l:replace_elem_now[ 0 ] . '?' . l:replace_elem_now[ 1 ] . '?' )
+		endfor
+	endif
+	" }}}
+	call EVLibTest_Gen_OutputLine( 'SUITE: ' . a:suite_name . ( empty( l:source_name ) ? '' : ' [' . l:source_name . ']' ) )
 	call EVLibTest_Gen_OutputLine( '' )
 endfunction
 
@@ -315,7 +329,11 @@ endfunction
 "    * use 'eval()';
 "   * test entry: { 'test': TEST_MSG, 'exec': EX_COMMAND_STRING [, 'options': OPTIONS ] }
 "    * use 'execute';
-"  * list: self-explanatory
+"  * list: [ test_description, expr_or_command, OPTIONS ]
+"     (the 'options' element is optional)
+"     expr_or_command:
+"      * if it starts with ':', it's considered a command ('execute');
+"      * otherwise, it's treated as an expression ('eval()');
 "  * OPTIONS: a list of strings specifying "options":
 "     * 'skiponfail.local': if this test fails, skip the test until the end of
 "         the group (or the end of all tests, if there is no active group);
@@ -345,7 +363,9 @@ function EVLibTest_Do_Batch( test_list )
 		if type( l:test_element_now_orig ) == type( {} )
 			let l:test_element_now = l:test_element_now_orig
 		elseif type( l:test_element_now_orig ) == type( [] )
-			let l:test_element_now = { 'test': l:test_element_now_orig[ 0 ], 'expr': l:test_element_now_orig[ 1 ] }
+			let l:test_element_now = { 'test': l:test_element_now_orig[ 0 ] }
+			let l:test_element_now_expr_key = ( ( l:test_element_now_orig[ 1 ][ 0 ] == ':' ) ? 'exec' : 'expr' )
+			let l:test_element_now[ l:test_element_now_expr_key ] = l:test_element_now_orig[ 1 ]
 			if ( len( l:test_element_now_orig ) > 2 )
 				let l:test_element_now[ 'options' ] = l:test_element_now_orig[ 2 ]
 			endif
@@ -412,22 +432,29 @@ endfunction
 let s:evlib_test_common_global_groupset_loadlibrary_start =
 		\		[
 		\			{ 'group': 'library initialisation' },
-		\			[ 'library not intialised yet (safe check)', '! exists( "*evlib#IsInitialised" )' ],
+		\			[ 'library not intialised yet (safe check)', '! exists( "*evlib#IsInitialised" )', [ 'skiponfail.all' ] ],
+		\			[ 'does not have access to evlib functions yet', ':call evlib#IsInitialised()', [ 'code.throws', 'skiponfail.all' ] ],
 		\		]
 let s:evlib_test_common_global_groupset_loadlibrary_end =
 		\		[
 		\			[ 'library now intialised', 'exists( "*evlib#IsInitialised" ) && evlib#IsInitialised()', [ 'skiponfail.all' ] ],
 		\		]
 
-function EVLibTest_GroupSet_LoadLibrary_Method_Source()
+function EVLibTest_GroupSet_LoadLibrary_Custom( test_list_initialisation )
 	return EVLibTest_Do_Batch(
 				\		s:evlib_test_common_global_groupset_loadlibrary_start
 				\		+
+				\		a:test_list_initialisation
+				\		+
+				\		s:evlib_test_common_global_groupset_loadlibrary_end
+				\	)
+endfunction
+
+function EVLibTest_GroupSet_LoadLibrary_Method_Source()
+	return EVLibTest_GroupSet_LoadLibrary_Custom(
 				\		[
 				\			{ 'test': 'load library by sourcing "evlib_loader.vim"', 'exec': 'source ' . g:evlib_test_common_rootdir . '/evlib_loader.vim' },
 				\		]
-				\		+
-				\		s:evlib_test_common_global_groupset_loadlibrary_end
 				\	)
 endfunction
 
