@@ -29,7 +29,8 @@ elseif exists( '$EVLIB_VIM_DEBUG' )
 	let s:debug_this_script = expand( '$EVLIB_VIM_DEBUG' )
 endif
 " deal with an empty variable value
-if ( len( s:debug_this_script ) == 0 )
+"  (note: empty() also returns != 0 for the input number == 0)
+if ( empty( s:debug_this_script ) )
 	let s:debug_this_script = 0
 endif
 " normalise: any value that is not the string '0' gets transformed into 1,
@@ -59,7 +60,7 @@ unlet s:cpo_save
 finish
 endif " "eval"
 " compatible mode
-echoerr "the script 'evdebug.vim' needs support for the following: eval"
+echoerr "the script 'debug.vim' needs support for the following: eval"
 
 " }}} boiler plate -- epilog
 

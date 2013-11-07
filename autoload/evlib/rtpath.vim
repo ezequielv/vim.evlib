@@ -22,7 +22,7 @@ set cpo&vim
 " }}} boiler plate -- prolog
 
 " support functions {{{
-function s:EVDebugScript( msg )
+function s:DebugMessage( msg )
 	return evlib#debug#DebugMessage( a:msg )
 endfunction
 " }}}
@@ -96,7 +96,7 @@ function evlib#rtpath#ExtendRuntimePath( path_or_paths, ... )
 		endif
 		" }}}
 
-		call s:EVDebugScript( l:debug_message_prefix . ' processing directory entry: "' . l:path_now . '"' )
+		call s:DebugMessage( l:debug_message_prefix . ' processing directory entry: "' . l:path_now . '"' )
 
 		" conditionally add directories to 'runtimepath' {{{
 		for l:stage_elem_now in [
@@ -147,11 +147,11 @@ function evlib#rtpath#CheckVimVersion( vim_version, ... )
 	let l:vim_patchlevel = 0
 	let l:vim_features = []
 	if ( a:0 >= 1 )
-		" debug: call s:EVDebugScript( l:debug_message_prefix . ' a:1: ' . string( a:1 ) )
+		" debug: call s:DebugMessage( l:debug_message_prefix . ' a:1: ' . string( a:1 ) )
 		let l:vim_patchlevel = a:1
 	endif
 	if ( a:0 >= 2 )
-		" debug: call s:EVDebugScript( l:debug_message_prefix . ' a:2: ' . string( a:2 ) )
+		" debug: call s:DebugMessage( l:debug_message_prefix . ' a:2: ' . string( a:2 ) )
 		let l:vim_features = a:2
 	endif
 
@@ -268,10 +268,10 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 			echoerr l:debug_message_prefix . 'list element ' . l:rootdir_order_now . ' is invalid. skipping.'
 			continue
 		endif
-		call s:EVDebugScript( l:debug_message_prefix . ' processing directory entry: "' . string( l:paths_element_now ) . '"' )
+		call s:DebugMessage( l:debug_message_prefix . ' processing directory entry: "' . string( l:paths_element_now ) . '"' )
 		" expand variables here, so that the debug message is useful
 		let l:paths_element_now[ 0 ] = expand( l:paths_element_now[ 0 ] )
-		call s:EVDebugScript( l:debug_message_prefix . '  expanded directory: "' . l:paths_element_now[ 0 ] . '"' )
+		call s:DebugMessage( l:debug_message_prefix . '  expanded directory: "' . l:paths_element_now[ 0 ] . '"' )
 
 		" initialise the list for this l:paths_element_now
 		let l:version_list_now = []
@@ -280,7 +280,7 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		"  "root" directory
 		for l:paths_element_now_subdir in sort( split( glob( fnamemodify( l:paths_element_now[ 0 ], ':p' ) . '[0-9][0-9][0-9]*' ) ) )
 			if !( isdirectory( l:paths_element_now_subdir ) )
-				call s:EVDebugScript( l:debug_message_prefix . '  skipping non-directory entry "' . l:paths_element_now_subdir . '"' )
+				call s:DebugMessage( l:debug_message_prefix . '  skipping non-directory entry "' . l:paths_element_now_subdir . '"' )
 				continue
 			endif
 
@@ -296,7 +296,7 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 			" vim version (key: 'ver_main') {{{
 			let l:path_value_matchindex = match( l:path_value_toparse, '^[0-9]\+' )
 			if !( l:path_value_matchindex >= 0 )
-				call s:EVDebugScript( l:debug_message_prefix . '  skipping malformed subdir component (vim version): "' . l:path_value_toparse . '"' )
+				call s:DebugMessage( l:debug_message_prefix . '  skipping malformed subdir component (vim version): "' . l:path_value_toparse . '"' )
 				continue
 			endif
 			" note: match() returns '-1' if there is no match
@@ -339,7 +339,7 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 			" }}}
 			" validation {{{
 			if ( len( l:path_value_toparse ) > 0 )
-				call s:EVDebugScript( l:debug_message_prefix . '  found remaining elements in the subdirectory name. value remaining: "' . l:path_value_toparse . '". dictionary element so far: ' . string( l:version_list_elem )  )
+				call s:DebugMessage( l:debug_message_prefix . '  found remaining elements in the subdirectory name. value remaining: "' . l:path_value_toparse . '". dictionary element so far: ' . string( l:version_list_elem )  )
 				continue
 			endif
 			" }}}
@@ -352,7 +352,7 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 			else
 				let l:debug_message_now = '[failed_checks]'
 			endif
-			call s:EVDebugScript( l:debug_message_prefix . '  dictionary element: ' . string( l:version_list_elem ) . ' ' . l:debug_message_now )
+			call s:DebugMessage( l:debug_message_prefix . '  dictionary element: ' . string( l:version_list_elem ) . ' ' . l:debug_message_now )
 			" }}}
 		endfor
 
@@ -378,9 +378,9 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		endif
 
 		if ( len( l:version_list_now ) > 0 )
-			call s:EVDebugScript( l:debug_message_prefix . ' root directory #' . l:rootdir_order_now . ': about to add entries: ' . string( l:version_list_now ) )
+			call s:DebugMessage( l:debug_message_prefix . ' root directory #' . l:rootdir_order_now . ': about to add entries: ' . string( l:version_list_now ) )
 		else
-			call s:EVDebugScript( l:debug_message_prefix . '  (directory not found, no valid subdirectories found, or valid subdirectories did not pass version checking)' )
+			call s:DebugMessage( l:debug_message_prefix . '  (directory not found, no valid subdirectories found, or valid subdirectories did not pass version checking)' )
 		endif
 		" append the list for the current "root directory" to the overall one
 		let l:version_list += l:version_list_now
@@ -393,7 +393,7 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		" note: the sorting is supposed to be in-place, but without the
 		"  assignment, it didn't work properly
 		let l:version_list = sort( l:version_list, 's:ExtendVersionedRuntimePath_CompareElements' )
-		" TODO: remove: call s:EVDebugScript( l:debug_message_prefix . 'INFO: sorted list of dictionary entries: ' . string( l:version_list ) )
+		" TODO: remove: call s:DebugMessage( l:debug_message_prefix . 'INFO: sorted list of dictionary entries: ' . string( l:version_list ) )
 
 		" get the list to use in the call to evlib#rtpath#ExtendRuntimePath() {{{
 		unlet! l:version_list_now
@@ -404,10 +404,10 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 		endfor
 		" }}}
 
-		call s:EVDebugScript( l:debug_message_prefix . 'about to add the following directories to "runtimepath": ' . string( l:paths_runtimedirs ) )
+		call s:DebugMessage( l:debug_message_prefix . 'about to add the following directories to "runtimepath": ' . string( l:paths_runtimedirs ) )
 		call evlib#rtpath#ExtendRuntimePath( l:paths_runtimedirs )
 	else
-		call s:EVDebugScript( l:debug_message_prefix . 'no remaining directories are to be added to "runtimepath"' )
+		call s:DebugMessage( l:debug_message_prefix . 'no remaining directories are to be added to "runtimepath"' )
 	endif
 endfunction
 
@@ -422,7 +422,7 @@ unlet s:cpo_save
 finish
 endif " "eval"
 " compatible mode
-echoerr "the script 'evrtpath.vim' needs support for the following: eval"
+echoerr "the script 'rtpath.vim' needs support for the following: eval"
 
 " }}} boiler plate -- epilog
 

@@ -22,7 +22,7 @@ set cpo&vim
 " }}} boiler plate -- prolog
 
 " support functions {{{
-function s:EVDebugScript( msg )
+function s:DebugMessage( msg )
 	return evlib#debug#DebugMessage( a:msg )
 endfunction
 " }}}
