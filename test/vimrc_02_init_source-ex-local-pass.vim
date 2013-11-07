@@ -1,7 +1,8 @@
-" test/vimrc_01_init_source-local.vim
+" test/vimrc_02_init_source-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')
+let g:evlib_test_common_main_source_file = expand( '<sfile>' )
 " load 'common' vim code
 execute 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/common.vim' )
 " }}}

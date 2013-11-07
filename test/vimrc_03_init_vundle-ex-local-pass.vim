@@ -1,7 +1,8 @@
-" test/vimrc_01_init_source-local.vim
+" test/vimrc_03_init_vundle-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')
+let g:evlib_test_common_main_source_file = expand( '<sfile>' )
 " load 'common' vim code
 execute 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/common.vim' )
 " }}}
@@ -33,17 +34,16 @@ call EVLibTest_Do_Batch( [
 	\			[ 'vundle not initialised yet', '! EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],
 	\			[ '"vundle" package directory available', 'filereadable( g:mytest_mytesttree_vundledir . "/README.md" )', [ 'skiponfail.all' ] ],
 	\			{ 'group': 'vundle initialisation' },
-	\			{ 'test': 'set up runtimepath to include "vundle"', 'exec': 'set runtimepath+=' . fnameescape( g:mytest_mytesttree_vundledir ), 'options': [ 'skiponfail.all' ] },
-	\			{ 'test': 'make sure vundle#rc() is available', 'exec': 'call function("vundle#rc")', 'options': [ 'skiponfail.all' ] },
-	\			{ 'test': 'initialise vundle (call vundle#rc())', 'exec': 'call vundle#rc( g:mytest_mytesttree_bundledir )', 'options': [ 'skiponfail.all' ] },
+	\			[ 'set up runtimepath to include "vundle"', ':set runtimepath+=' . fnameescape( g:mytest_mytesttree_vundledir ), [ 'skiponfail.all' ] ],
+	\			[ 'make sure vundle#rc() is available', ':call function("vundle#rc")', [ 'skiponfail.all' ] ],
+	\			[ 'initialise vundle (call vundle#rc())', ':call vundle#rc( g:mytest_mytesttree_bundledir )', [ 'skiponfail.all' ] ],
 	\			[ 'vundle initialised', 'EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],
-	\			{ 'test': 'add "vundle" package (required by vundle)', 'exec': 'Bundle "gmarik/vundle"', 'options': [ 'skiponfail.all' ] },
+	\			[ 'add "vundle" package (required by vundle)', ':Bundle "gmarik/vundle"', [ 'skiponfail.all' ] ],
 	\			{ 'group': 'vim.evlib library initialisation' },
-	\			{ 'test': 'add "vim.evlib" package (this one)', 'exec': 'Bundle "ezequielv/vim.evlib"', 'options': [ 'skiponfail.all' ] },
-	\			{ 'test': 'finalise plugin setup (required by vundle)', 'exec': 'filetype plugin indent on', 'options': [ 'skiponfail.all' ] },
-	\			{ 'test': 'force execution of "vim.evlib" plugin now', 'exec': 'runtime plugin/evlib_fwd.vim', 'options': [ 'skiponfail.all' ] },
+	\			[ 'add "vim.evlib" package (this one)', ':Bundle "ezequielv/vim.evlib"', [ 'skiponfail.all' ] ],
+	\			[ 'finalise plugin setup (required by vundle)', ':filetype plugin indent on', [ 'skiponfail.all' ] ],
+	\			[ 'force execution of "vim.evlib" plugin now', ':runtime plugin/evlib_fwd.vim', [ 'skiponfail.all' ] ],
 	\	] )
-"
 
 "+ call EVLibTest_Gen_InfoVarValue( '&runtimepath' )
 
