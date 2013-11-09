@@ -47,8 +47,8 @@ function s:EnableEVLib( paths )
 			break
 		endif
 	endfor
-	if ( len( l:path_found ) > 0 )
-		if ( len( l:path_found ) > 1 ) && ( l:path_found[ -1: ] == '/' )
+	if ( strlen( l:path_found ) > 0 )
+		if ( strlen( l:path_found ) > 1 ) && ( l:path_found[ -1: ] == '/' )
 			" get rid of the last '/'
 			let l:path_found = l:path_found[ :-2 ]
 		endif
