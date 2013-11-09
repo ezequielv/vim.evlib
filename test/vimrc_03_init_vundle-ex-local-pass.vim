@@ -4,7 +4,18 @@
 if has('eval')
 let g:evlib_test_common_main_source_file = expand( '<sfile>' )
 " load 'common' vim code
-execute 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/common.vim' )
+let s:evlib_test_common_common_source_file = fnamemodify( g:evlib_test_common_main_source_file, ':p:h' ) . '/common.vim'
+execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_common_common_source_file ) : s:evlib_test_common_common_source_file )
+" }}}
+
+" make sure that 'vundle' is supported {{{
+" LATER: put the right version check here
+"  (see ':h v:version', and 'has("patch123")')
+if !( exists( '*fnameescape' ) && ( v:version >= 700 ) )
+	call EVLibTest_Gen_InfoMsg( 'test file: ' . string( fnamemodify( g:evlib_test_common_main_source_file, ':p:t' ) ) . ' requires "vundle", but it is not supported by the vim instance being run' )
+	call EVLibTest_Gen_OutputLine( '' )
+	finish
+endif
 " }}}
 
 let g:mytest_mytesttree_rootdir = g:evlib_test_common_test_testtrees_rootdir . '/vundle.01'
@@ -24,7 +35,7 @@ filetype off                   " required!
 "+ call EVLibTest_Gen_InfoVarValue( "g:mytest_mytesttree_bundledir" )
 "+ call EVLibTest_Gen_InfoVarValue( "g:mytest_mytesttree_vundledir" )
 "+ call EVLibTest_Gen_InfoVarValue( '&runtimepath' )
-"+ exec 'set runtimepath+=' . fnameescape( g:mytest_mytesttree_vundledir )
+"+ exec 'set runtimepath+=' . ( exists( '*fnameescape' ) ? fnameescape( g:mytest_mytesttree_vundledir ) : g:mytest_mytesttree_vundledir )
 "+ call EVLibTest_Gen_InfoVarValue( '&runtimepath' )
 
 call EVLibTest_Start( 'load library using "vundle"' )
@@ -34,7 +45,7 @@ call EVLibTest_Do_Batch( [
 	\			[ 'vundle not initialised yet', '! EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],
 	\			[ '"vundle" package directory available', 'filereadable( g:mytest_mytesttree_vundledir . "/README.md" )', [ 'skiponfail.all' ] ],
 	\			{ 'group': 'vundle initialisation' },
-	\			[ 'set up runtimepath to include "vundle"', ':set runtimepath+=' . fnameescape( g:mytest_mytesttree_vundledir ), [ 'skiponfail.all' ] ],
+	\			[ 'set up runtimepath to include "vundle"', ':set runtimepath+=' . ( exists( '*fnameescape' ) ? fnameescape( g:mytest_mytesttree_vundledir ) : g:mytest_mytesttree_vundledir ), [ 'skiponfail.all' ] ],
 	\			[ 'make sure vundle#rc() is available', ':call function("vundle#rc")', [ 'skiponfail.all' ] ],
 	\			[ 'initialise vundle (call vundle#rc())', ':call vundle#rc( g:mytest_mytesttree_bundledir )', [ 'skiponfail.all' ] ],
 	\			[ 'vundle initialised', 'EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],

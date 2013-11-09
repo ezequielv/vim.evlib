@@ -102,7 +102,13 @@ function EVLibTest_Gen_GetTestStats()
 endfunction
 
 function EVLibTest_Gen_OutputTestStats( msg, ntests, npass )
-	call EVLibTest_Gen_OutputLine( 'RESULTS (' . a:msg . '): tests: ' . string( a:ntests ) . ', pass: ' . string( a:npass ) . ' -- rate: ' . string( round( ( ( str2float( a:npass ) / ( a:ntests ? str2float( a:ntests ) : 1.0 ) ) * 100 ) * 100 ) / 100 ) . '%' )
+	" vim 7.0 does not have str2float() (or float support, for that matter)
+	let l:pass_rate_strnum = ( a:npass * 10000 ) / ( a:ntests ? a:ntests : 1 )
+	" pad with zeroes if the result is too small
+	if ( strlen( l:pass_rate_strnum ) < 3 )
+		let l:pass_rate_strnum = repeat( '0', 3 - strlen( l:pass_rate_strnum ) ) . l:pass_rate_strnum
+	endif
+	call EVLibTest_Gen_OutputLine( 'RESULTS (' . a:msg . '): tests: ' . string( a:ntests ) . ', pass: ' . string( a:npass ) . ' -- rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%' )
 endfunction
 "" }}}
 

@@ -109,7 +109,7 @@ function evlib#rtpath#ExtendRuntimePath( path_or_paths, ... )
 			if !( ( !( l:flag_checkdirectory ) || isdirectory( l:path_now ) ) )
 				continue
 			endif
-			let l:path_now_escaped = fnameescape( l:path_now )
+			let l:path_now_escaped = evlib#compat#fnameescape( l:path_now )
 			" remove previous instances of this path from 'runtimepath' {{{
 			for l:stage_path_remove in range( 1, 2 )
 				let l:path_now_to_remove = ''
@@ -125,7 +125,7 @@ function evlib#rtpath#ExtendRuntimePath( path_or_paths, ... )
 				endif
 				if ( len( l:path_now_to_remove ) > 0 )
 					" remove it if it was present in the list already
-					exec 'set runtimepath-=' . fnameescape( l:path_now_to_remove )
+					exec 'set runtimepath-=' . evlib#compat#fnameescape( l:path_now_to_remove )
 				endif
 			endfor
 			" }}}

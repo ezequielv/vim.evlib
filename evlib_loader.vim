@@ -52,7 +52,9 @@ function s:EnableEVLib( paths )
 			" get rid of the last '/'
 			let l:path_found = l:path_found[ :-2 ]
 		endif
-		exec 'set runtimepath+=' . fnameescape( l:path_found )
+		" prev: fnameescape() not always available -- probably better to avoid
+		"  it: exec 'set runtimepath+=' . fnameescape( l:path_found )
+		let &runtimepath = ( ( strlen( &runtimepath ) > 0 ) ? ( &runtimepath . ',' ) : '' ) . l:path_found
 		" FIXME: if evlib#Init() works, consider adding the 'after'
 		"  path, too (should I use evlib#rtpath#ExtendRuntimePath(),
 		"  or manually add the '/after' path here?)
@@ -67,7 +69,7 @@ endfunction
 " determine the directory in which this file lives, and call the
 "  initialisation function with it
 if ! s:EnableEVLib( [ fnamemodify( expand( '<sfile>' ), ':p:h' ) ] )
-	echoerr '[DEBUG] ' . fnameescape( expand( '<sfile>' ) ) . ': failed to find and initialise EVLib'
+	echoerr '[DEBUG] ' . expand( '<sfile>' ) . ': failed to find and initialise EVLib'
 endif
 
 " boiler plate -- epilog {{{

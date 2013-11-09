@@ -20,8 +20,13 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
+function s:evlib_local_fnameescape( fname )
+	" for now, we do not do any escaping if it isn't supported
+	return ( exists( '*fnameescape' ) ? fnameescape( a:fname ) : a:fname )
+endfunction
+
 " forward to the script that knows how to load this library
-exec 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h:h' ) . '/evlib_loader.vim' )
+execute 'source ' . s:evlib_local_fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h:h' ) . '/evlib_loader.vim' )
 
 " boiler plate -- epilog {{{
 

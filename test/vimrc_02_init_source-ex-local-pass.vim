@@ -4,7 +4,8 @@
 if has('eval')
 let g:evlib_test_common_main_source_file = expand( '<sfile>' )
 " load 'common' vim code
-execute 'source ' . fnameescape( fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/common.vim' )
+let s:evlib_test_common_common_source_file = fnamemodify( g:evlib_test_common_main_source_file, ':p:h' ) . '/common.vim'
+execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_common_common_source_file ) : s:evlib_test_common_common_source_file )
 " }}}
 
 call EVLibTest_Start( 'load library using "source {path}/evlib_loader.vim"' )
