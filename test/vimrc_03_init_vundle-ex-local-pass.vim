@@ -11,7 +11,7 @@ execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_commo
 " make sure that 'vundle' is supported {{{
 " LATER: put the right version check here
 "  (see ':h v:version', and 'has("patch123")')
-if !( exists( '*fnameescape' ) && ( v:version >= 700 ) )
+if !( ( v:version >= 700 ) )
 	call EVLibTest_Gen_InfoMsg( 'test file: ' . string( fnamemodify( g:evlib_test_common_main_source_file, ':p:t' ) ) . ' requires "vundle", but it is not supported by the vim instance being run' )
 	call EVLibTest_Gen_OutputLine( '' )
 	finish
@@ -46,7 +46,7 @@ call EVLibTest_Do_Batch( [
 	\			[ '"vundle" package directory available', 'filereadable( g:mytest_mytesttree_vundledir . "/README.md" )', [ 'skiponfail.all' ] ],
 	\			{ 'group': 'vundle initialisation' },
 	\			[ 'set up runtimepath to include "vundle"', ':set runtimepath+=' . ( exists( '*fnameescape' ) ? fnameescape( g:mytest_mytesttree_vundledir ) : g:mytest_mytesttree_vundledir ), [ 'skiponfail.all' ] ],
-	\			[ 'make sure vundle#rc() is available', ':call function("vundle#rc")', [ 'skiponfail.all' ] ],
+	\			[ 'make sure vundle#*() functions are available', '!empty( globpath( &runtimepath, "autoload/vundle.vim" ) )', [ 'skiponfail.all' ] ],
 	\			[ 'initialise vundle (call vundle#rc())', ':call vundle#rc( g:mytest_mytesttree_bundledir )', [ 'skiponfail.all' ] ],
 	\			[ 'vundle initialised', 'EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],
 	\			[ 'add "vundle" package (required by vundle)', ':Bundle "gmarik/vundle"', [ 'skiponfail.all' ] ],
