@@ -6,10 +6,10 @@
 if has("eval")
 
 " inclusion control {{{
-if exists( 'g:evdebug_loaded' ) || ( exists( 'g:evdebug_disable' ) && g:evdebug_disable != 0 )
+if exists( 'g:evlib_debug_loaded' ) || ( exists( 'g:evlib_debug_disable' ) && g:evlib_debug_disable != 0 )
 	finish
 endif
-let g:evdebug_loaded = 1
+let g:evlib_debug_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{

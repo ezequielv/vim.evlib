@@ -6,10 +6,10 @@
 if has("eval")
 
 " inclusion control {{{
-if exists( 'g:evrtpath_loaded' ) || ( exists( 'g:evrtpath_disable' ) && g:evrtpath_disable != 0 )
+if exists( 'g:evlib_rtpath_loaded' ) || ( exists( 'g:evlib_rtpath_disable' ) && g:evlib_rtpath_disable != 0 )
 	finish
 endif
-let g:evrtpath_loaded = 1
+let g:evlib_rtpath_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{

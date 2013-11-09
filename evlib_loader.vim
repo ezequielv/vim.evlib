@@ -41,7 +41,6 @@ function s:EnableEVLib( paths )
 		if ! isdirectory( l:path_now )
 			continue
 		endif
-		" prev: 'autoload/evlib/evdebug.vim'
 		let l:path_detect_now = l:path_now . 'autoload/evlib.vim'
 		if filereadable( l:path_detect_now )
 			let l:path_found = l:path_now
