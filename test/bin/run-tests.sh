@@ -5,7 +5,7 @@ set -e
 # syntax: f_help [exit_code]
 f_help()
 {
-	echo "$prgname" '[options] [--] [vim_args]
+	echo "$prgname" '[options] [--] [test_scripts]
 
 what gets reported:
 
@@ -24,16 +24,23 @@ what gets reported:
 
 main mode of operation:
 
--p VIMPROGRAM
-    use VIMPROGRAM as the vim executable.
-    default is "'${g_cmd_vim_default}'".
-
 -f
     "filter" mode. do not invoke the vim editor,
     but assume that stdin has the data produced
     by it.
+    (default is to invoke the vim editor)
 
 other options:
+
+-p VIMPROGRAM
+    use VIMPROGRAM as the vim executable.
+    default is "'${g_cmd_vim_default}'".
+
+-O OPTIONS
+    specify vim options
+    (make sure that escaping is not an issue --
+    no spaces, backslashes, etc.)
+    FIXME: implement
 
 -D
     debug this script (not everything is shown)
@@ -81,6 +88,12 @@ shift `expr $OPTIND - 1`
 [ -z "${g_opermode}" ] && g_opermode="${g_opermode_default}"
 [ -z "${g_cmd_vim}" ] && g_cmd_vim="${g_cmd_vim_default}"
 [ -z "${g_reportmode}" ] && g_reportmode="${g_reportmode_default}"
+# }}}
+# validation {{{
+if [ "${g_opermode}" = "program" ] ; then
+	# FIXME: end program gracefully (get f_abort() from another script)
+	which "${g_cmd_vim}" > /dev/null 2> /dev/null
+fi
 # }}}
 
 # functions {{{
