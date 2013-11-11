@@ -69,8 +69,36 @@ function EVLibTest_Finalise()
 	let s:evlib_test_common_global_skippingtests_flag = 0
 endfunction
 
+" support for writing the results to a file {{{
+let s:evlib_test_common_global_outputtofile_flag = 0
+function s:EVLibTest_Init_TestOutput()
+	for l:var_now in [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
+		if exists( l:var_now )
+			let l:file_escaped = expand( l:var_now )
+			if exists( '*fnameescape' )
+				let l:file_escaped = fnameescape( l:file_escaped )
+			endif
+			" NOTE: alternative, use option 'verbosefile' instead
+			"  (see ":h 'verbosefile'")
+			execute 'redir >> ' . l:file_escaped
+			let s:evlib_test_common_global_outputtofile_flag = 1
+			" all done, stop trying
+			break
+		endif
+	endfor
+	" MAYBE: FIXME: add an event handler before vim exits, to close the redirection
+endfunction
+call s:EVLibTest_Init_TestOutput()
+" }}}
+
 let s:evlib_test_common_output_lineprefix_string = 'TEST: '
 function EVLibTest_Gen_OutputLine( msg )
+	" fix: when redirecting to a file, make sure that we start each message on
+	"  a new line (error messages sometimes have a '<CR>' at the end, which
+	"  means that the next line will start at column > 1
+	if s:evlib_test_common_global_outputtofile_flag
+		echomsg ' '
+	endif
 	echomsg s:evlib_test_common_output_lineprefix_string . a:msg
 endfunction
 
@@ -184,7 +212,7 @@ function EVLibTest_Test_EndCommon( msg_result )
 
 		let l:message_unpadded_len = strlen( s:evlib_test_common_output_lineprefix_string ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
-		let l:columns = min( [ &columns, 100 ] ) - 1
+		let l:columns = ( s:evlib_test_common_global_outputtofile_flag ? 76 : min( [ &columns, 100 ] ) ) - 1
 		if ( l:message_unpadded_len < l:columns )
 			let l:filler_len = ( l:columns - l:message_unpadded_len )
 			let l:filler_string = repeat( ' ', ( l:filler_len % l:filler_string_one_len ) ) . repeat( l:filler_string_one, ( l:filler_len / l:filler_string_one_len ) )
