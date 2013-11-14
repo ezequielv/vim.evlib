@@ -1,4 +1,4 @@
-" extend the runtimepath
+" library initialisation functions
 
 " boiler plate -- prolog {{{
 
@@ -40,26 +40,6 @@ function evlib#Init() abort
 		" TODO: check for all the features that we need in this library
 
 		" now we can set up a few things
-		" FIXME: create a directory from the root:
-		"  {root}/evlib
-		"  to which this "glob" gets added and expanded:
-		"  {root}/evlib/impl/init/:
-		"   20-test_cmd.vim
-		"    this will install commands such as:
-		"    (TODO: validate from vim's help (see ':h usr_41.txt', then search
-		"    for '<Plug>TypecorrAdd  -> '...)
-		"     g:evlib_cfg_cmd_prefix . 'TestRun'
-		"      which would run:
-		"     <SID>CommandTestRun ...
-		"      which would then run:
-		"     :call <SID>TestRun( ... )<CR>
-		"
-		" FIXME: have autoload/evlib/internal.vim set the directory root,
-		"  knowing its own relative location (fnamemodify());
-		"
-		" FIXME: use glob()
-		"
-		" LATER: call evlib#internal#SourceEVLibFiles( 'impl/init/*.vim' )
 
 		" lastly, we mark the library as initialised
 		let g:evlib_initialised = 1
