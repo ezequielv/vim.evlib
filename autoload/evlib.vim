@@ -35,12 +35,36 @@ endfunction
 " TODO: also initialise the library from the 'plugin/*.vim' file, so that we
 "  can support the user not caring about initialisation, as long as we are
 "  accessible through the 'runtimepath' setting;
-function evlib#Init()
+function evlib#Init() abort
 	if ! evlib#IsInitialised()
 		" TODO: check for all the features that we need in this library
+
+		" now we can set up a few things
+		" FIXME: create a directory from the root:
+		"  {root}/evlib
+		"  to which this "glob" gets added and expanded:
+		"  {root}/evlib/impl/init/:
+		"   20-test_cmd.vim
+		"    this will install commands such as:
+		"    (TODO: validate from vim's help (see ':h usr_41.txt', then search
+		"    for '<Plug>TypecorrAdd  -> '...)
+		"     g:evlib_cfg_cmd_prefix . 'TestRun'
+		"      which would run:
+		"     <SID>CommandTestRun ...
+		"      which would then run:
+		"     :call <SID>TestRun( ... )<CR>
+		"
+		" FIXME: have autoload/evlib/internal.vim set the directory root,
+		"  knowing its own relative location (fnamemodify());
+		"
+		" FIXME: use glob()
+		"
+		" LATER: call evlib#internal#SourceEVLibFiles( 'impl/init/*.vim' )
+
+		" lastly, we mark the library as initialised
 		let g:evlib_initialised = 1
 	endif
-	return 1
+	return evlib#IsInitialised()
 endfunction
 
 " boiler plate -- epilog {{{

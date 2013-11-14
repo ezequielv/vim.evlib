@@ -30,7 +30,7 @@ set cpo&vim
 " returns:
 "  0: failure (and/or not found the vim module/plugin);
 "  !=0: success (evlib#Init() has been run successfully);
-function s:EnableEVLib( paths )
+function s:EnableEVLib( paths ) abort
 	" for now, start small: copy reference to user's list
 	let l:paths = a:paths
 
@@ -71,6 +71,9 @@ endfunction
 if ! s:EnableEVLib( [ fnamemodify( expand( '<sfile>' ), ':p:h' ) ] )
 	echoerr '[DEBUG] ' . expand( '<sfile>' ) . ': failed to find and initialise EVLib'
 endif
+
+" no need to keep this function in memory -> delete it
+delfunction s:EnableEVLib
 
 " boiler plate -- epilog {{{
 
