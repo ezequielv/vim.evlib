@@ -6,10 +6,9 @@
 if has("eval")
 
 " inclusion control {{{
-if exists( 'g:evlib_compat_loaded' ) || ( exists( 'g:evlib_compat_disable' ) && g:evlib_compat_disable != 0 )
+if ( ! evlib#pvt#init#ShouldSourceThisModule( 'compat' ) )
 	finish
 endif
-let g:evlib_compat_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{

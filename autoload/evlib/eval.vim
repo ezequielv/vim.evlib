@@ -6,10 +6,9 @@
 if has("eval")
 
 " inclusion control {{{
-if exists( 'g:evlib_eval_loaded' ) || ( exists( 'g:evlib_eval_disable' ) && g:evlib_eval_disable != 0 )
+if ( ! evlib#pvt#init#ShouldSourceThisModule( 'eval' ) )
 	finish
 endif
-let g:evlib_eval_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{
@@ -34,6 +33,8 @@ endfunction
 "  t: type check: treat the variable as non-existing if the current value does
 "      not match the type for {def};
 "  s: set: if the variable did not exist, create it and set it to {def};
+"
+" TODO: update callers to use flags, when those are implemented
 function evlib#eval#GetVariableValueDefault( varname, def ) abort
 	if exists( a:varname )
 		return eval( a:varname )

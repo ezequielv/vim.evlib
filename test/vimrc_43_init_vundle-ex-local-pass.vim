@@ -1,4 +1,4 @@
-" test/vimrc_03_init_vundle-ex-local-pass.vim
+" test/vimrc_43_init_vundle-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')

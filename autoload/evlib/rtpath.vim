@@ -6,10 +6,9 @@
 if has("eval")
 
 " inclusion control {{{
-if exists( 'g:evlib_rtpath_loaded' ) || ( exists( 'g:evlib_rtpath_disable' ) && g:evlib_rtpath_disable != 0 )
+if ( ! evlib#pvt#init#ShouldSourceThisModule( 'rtpath' ) )
 	finish
 endif
-let g:evlib_rtpath_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{
@@ -184,7 +183,7 @@ function s:ExtendVersionedRuntimePath_CompareElements( v1, v2 )
 		let l:compare_result = a:v1['rootdir_order'] - a:v2['rootdir_order']
 	endif
 	if l:compare_result == 0
-		" FIXME: implement a user order (for example, through a '_{user_order}', just after the optional patch level),
+		" TODO: implement a user order (for example, through a '_{user_order}', just after the optional patch level),
 		"  and compare it here
 	endif
 	return l:compare_result

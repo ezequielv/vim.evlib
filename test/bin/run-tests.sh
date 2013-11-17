@@ -40,7 +40,7 @@ other options:
     specify vim options
     (make sure that escaping is not an issue --
     no spaces, backslashes, etc.)
-    FIXME: implement
+    TODO: implement
 
 -D
     debug this script (not everything is shown)
@@ -110,8 +110,9 @@ f_filter_results()
 {
 	case "${g_reportmode}" in
 		all)
-			# FIXME: still use the awk program below, but force the summary
+			# TODO: still use the awk program below, but force the summary
 			#  (IDEA: add another variable to let all the lines from input through)
+			# IDEA: "grep out" empty lines
 			cat
 			;;
 		categ|optimised|summary)

@@ -1,4 +1,4 @@
-" test/vimrc_01_selftest-ex-local-pass.vim
+" test/vimrc_11_selftest-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')

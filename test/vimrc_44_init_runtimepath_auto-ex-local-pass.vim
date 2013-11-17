@@ -1,4 +1,4 @@
-" test/vimrc_04_init_runtimepath_auto-ex-local-pass.vim
+" test/vimrc_44_init_runtimepath_auto-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')
@@ -10,11 +10,13 @@ execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_commo
 
 call EVLibTest_Start( 'make library available by setting runtimepath, then initialising manually' )
 call EVLibTest_GroupSet_LoadLibrary_Custom(
-	\		[
-	\			[ 'sanity check: common.vim set up correctly', 'exists( "g:evlib_test_common_rootdir" ) && isdirectory( g:evlib_test_common_rootdir )', [ 'skiponfail.all' ] ],
-	\			[ 'set up runtimepath to include project root directory', ':let &runtimepath .= "," . g:evlib_test_common_rootdir', [ 'skiponfail.all' ] ],
-	\			[ 'initialise the library (call evlib#Init())', ':call evlib#Init()', [ 'skiponfail.all' ] ],
-	\		]
+	\		{	'libinit':
+	\				[
+	\					[ 'sanity check: common.vim set up correctly', 'exists( "g:evlib_test_common_rootdir" ) && isdirectory( g:evlib_test_common_rootdir )', [ 'skiponfail.all' ] ],
+	\					[ 'set up runtimepath to include project root directory', ':let &runtimepath .= "," . g:evlib_test_common_rootdir', [ 'skiponfail.all' ] ],
+	\					[ 'initialise the library (call evlib#Init())', ':call evlib#Init()', [ 'skiponfail.all' ] ],
+	\				]
+	\		}
 	\	)
 
 call EVLibTest_GroupSet_TestLibrary()

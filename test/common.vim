@@ -86,7 +86,7 @@ function s:EVLibTest_Init_TestOutput()
 			break
 		endif
 	endfor
-	" MAYBE: FIXME: add an event handler before vim exits, to close the redirection
+	" TODO: add an event handler before vim exits, to close the redirection
 endfunction
 call s:EVLibTest_Init_TestOutput()
 " }}}
@@ -138,7 +138,16 @@ function EVLibTest_Gen_OutputTestStats( msg, ntests, npass )
 	endif
 	call EVLibTest_Gen_OutputLine( 'RESULTS (' . a:msg . '): tests: ' . string( a:ntests ) . ', pass: ' . string( a:npass ) . ' -- rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%' )
 endfunction
-"" }}}
+" }}}
+
+" utility functions {{{
+function s:EVLibTest_Util_ThrowTestException_Custom( exception_suffix )
+	throw 'EVLibTestException_' . a:exception_suffix
+endfunction
+function s:EVLibTest_Util_ThrowTestExceptionInternalError()
+	return s:EVLibTest_Util_ThrowTestException_Custom( 'InternalError' )
+endfunction
+" }}}
 
 " test group support {{{
 let s:evlib_test_common_in_group_flag = 0
@@ -449,51 +458,196 @@ function EVLibTest_Do_Batch( test_list )
 	if l:in_group_flag
 		call EVLibTest_Group_End()
 	endif
+	return !0 " true
 endfunction
 " }}}
 
 " high-level test groups {{{
+
+" utility functions {{{
+
+let s:evlib_test_common_type_dict = type( {} )
+let s:evlib_test_common_dict_empty_readonly = {}
+
+function s:EVLibTest_GroupSet_GetDictEntryFromDict( args_dict, dict_key, val_default )
+	let l:args_dict = ( ( type( a:args_dict ) == s:evlib_test_common_type_dict ) ? a:args_dict : s:evlib_test_common_dict_empty_readonly )
+	if has_key( l:args_dict, a:dict_key ) && ( ! empty( l:args_dict[ a:dict_key ] ) )
+		return l:args_dict[ a:dict_key ]
+	endif
+	return a:val_default
+endfunction
+
+" the returned dictionary is read-only. use deepcopy() to modify.
+function s:EVLibTest_GroupSet_GetDictFromParsList( a_000 )
+	return (
+		\		( ( len( a:a_000 ) > 0 ) && ( type( a:a_000[ 0 ] ) == s:evlib_test_common_type_dict ) )
+		\		?	( a:a_000[ 0 ] )
+		\		:	( {} )
+		\	)
+endfunction
+
+function s:EVLibTest_GroupSet_GetDictEntryFromParsList( a_000, dict_key, val_default )
+	return s:EVLibTest_GroupSet_GetDictEntryFromDict(
+		\		s:EVLibTest_GroupSet_GetDictFromParsList( a:a_000 ),
+		\		a:dict_key, a:val_default
+		\	)
+endfunction
+
+" returns new (possibly copied) dictionary, which could be written to without
+"  a further copy()/deepcopy().
+function s:EVLibTest_GroupSet_PopulateDictionaryCopy( args_dict )
+	let l:args_dict = ( ( type( a:args_dict ) == s:evlib_test_common_type_dict ) ? deepcopy( a:args_dict ) : {} )
+	for l:elem_now in [
+				\		[
+				\			[
+				\				'precheck', 'preinit', 'postinit', 'epilog',
+				\			],
+				\			[]
+				\		],
+				\		[
+				\			[ 'group_title', ],
+				\			''
+				\		]
+				\	]
+		let l:default_value_now = l:elem_now[ 1 ]
+		for l:dict_key in l:elem_now[ 0 ]
+			if ( ! has_key( l:args_dict, l:dict_key ) )
+				let l:args_dict[ l:dict_key ] = l:default_value_now
+			endif
+		endfor
+		unlet! l:default_value_now
+	endfor
+	return l:args_dict
+endfunction
+
+" returns "success"
+function s:EVLibTest_GroupSet_SetDictionaryEntrySafe( args_dict, dict_key, value )
+	if ( has_key( a:args_dict, a:dict_key ) && ( ! empty( a:args_dict[ a:dict_key ] ) ) )
+		" dictionary has already got a non-empty value for this key
+		return 0 " false
+	endif
+	" set the value
+	let a:args_dict[ a:dict_key ] = a:value
+	return !0 " true
+endfunction
+
+" }}}
+
 function EVLibTest_GroupSet_TestLibrary()
 	return EVLibTest_Do_Batch(
 		\		[
 		\			{ 'group': 'library high-level sanity check' },
 		\			[ 'library is intialised', 'exists( "*evlib#IsInitialised" ) && evlib#IsInitialised()', [ 'skiponfail.local' ] ],
-		\			{ 'test': 'can call evlib#debug#DebugMessage()', 'exec': 'call evlib#debug#DebugMessage( "test message" )' },
+		\			[ 'can call evlib#debug#DebugMessage()', ':call evlib#debug#DebugMessage( "test message" )' ],
 		\		]
 		\	)
 endfunction
 
 let s:evlib_test_common_global_groupset_loadlibrary_start =
 		\		[
-		\			{ 'group': 'library initialisation' },
 		\			[ 'library not intialised yet (safe check)', '! exists( "*evlib#IsInitialised" )', [ 'skiponfail.all' ] ],
 		\			[ 'does not have access to evlib functions yet', ':call evlib#IsInitialised()', [ 'code.throws', 'skiponfail.all' ] ],
 		\		]
+
 let s:evlib_test_common_global_groupset_loadlibrary_end =
 		\		[
 		\			[ 'library now intialised', 'exists( "*evlib#IsInitialised" ) && evlib#IsInitialised()', [ 'skiponfail.all' ] ],
 		\		]
 
-function EVLibTest_GroupSet_LoadLibrary_Custom( test_list_initialisation )
+function EVLibTest_GroupSet_LoadLibrary_Custom( ... )
+	let l:args_dict = s:EVLibTest_GroupSet_GetDictFromParsList( a:000 )
 	return EVLibTest_Do_Batch(
+				\		[
+				\			{ 'group': s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'group_title', 'library initialisation' ) },
+				\		]
+				\		+
+				\		s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'precheck', [] )
+				\		+
 				\		s:evlib_test_common_global_groupset_loadlibrary_start
 				\		+
-				\		a:test_list_initialisation
+				\		s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'preinit', [] )
+				\		+
+				\		s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'libinit', [] )
+				\		+
+				\		s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'postinit', [] )
 				\		+
 				\		s:evlib_test_common_global_groupset_loadlibrary_end
+				\		+
+				\		s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'epilog', [] )
 				\	)
 endfunction
 
-function EVLibTest_GroupSet_LoadLibrary_Method_Source()
-	return EVLibTest_GroupSet_LoadLibrary_Custom(
+function EVLibTest_GroupSet_LoadLibrary_Method_Source( ... )
+	let l:args_dict = s:EVLibTest_GroupSet_PopulateDictionaryCopy( s:EVLibTest_GroupSet_GetDictFromParsList( a:000 ) )
+	let l:success = !0 " true
+
+	let l:success = l:success && s:EVLibTest_GroupSet_SetDictionaryEntrySafe( l:args_dict, 'libinit',
 				\		[
-				\			{ 'test': 'load library by sourcing "evlib_loader.vim"', 'exec': 'source ' . g:evlib_test_common_rootdir . '/evlib_loader.vim' },
+				\			[ 'load library by sourcing "evlib_loader.vim"', ':source ' . g:evlib_test_common_rootdir . '/evlib_loader.vim' ],
 				\		]
 				\	)
+	let l:success = l:success && EVLibTest_GroupSet_LoadLibrary_Custom( l:args_dict )
+	" (internal) sanity checking
+	if ( ! l:success ) | call s:EVLibTest_Util_ThrowTestExceptionInternalError() | endif
+
+	return l:success
 endfunction
 
-function EVLibTest_GroupSet_LoadLibrary_Default()
-	return EVLibTest_GroupSet_LoadLibrary_Method_Source()
+" * does pre-loading validation (uses EVLibTest_GroupSet_LoadLibrary_Custom());
+" * makes the library available in the 'runtimepath';
+" * adds test_list_preinit;
+" * initialises the library manually;
+" * adds test_list_postinit;
+" * does post-loading validation (uses EVLibTest_GroupSet_LoadLibrary_Custom());
+"
+" DONE: change all these EVLibTest_GroupSet_LoadLibrary_*() functions:
+"  . make them take a dictionary instead of several lists:
+"     'precheck', 'preinit', 'postinit', 'epilog'
+"  . then we could add support for a custom group 'group'/'group_title';
+"  . change the functions so all take '( ... )', and resolve the dictionary
+"     entries like this:
+"     let l:list_preinit = s:EVLibTest_GroupSet_GetDictEntryFromPars( a:000, 'preinit', [] )
+"     let l:list_preinit = s:EVLibTest_GroupSet_GetDictEntryFromPars( a:000, 'group_title', 'default title' )
+"     let l:dictionary_to_change = s:EVLibTest_GroupSet_PopulateDictionaryFromPars( a:000 )
+"      " this returns a dictionary with certain guaranteed entries (so that we
+"      "  don't have to do has_key() calls for those);
+"      " customisations...
+"  . change the functions that take one of the list members to use the
+"     dictionary entry instead ('fun(list_par) -> fun(...)'), and
+"     use EVLibTest_GroupSet_PopulateDictionaryFromPars() to retrieve the
+"     dictionary from the "extra args";
+"   . todo: think how we're going to avoid overwriting user settings without
+"      noticing (so we could have a setting somewhere to set a new value, only
+"      when empty() returns true for the current (default) value);
+function EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust( ... )
+	let l:args_dict = s:EVLibTest_GroupSet_PopulateDictionaryCopy( s:EVLibTest_GroupSet_GetDictFromParsList( a:000 ) )
+	let l:success = !0 " true
+
+	" add our elements to the beginning of 'preinit'
+	if l:success
+		let l:args_dict[ 'preinit' ] =
+				\	[
+				\		[ 'sanity check: common.vim set up correctly', 'exists( "g:evlib_test_common_rootdir" ) && isdirectory( g:evlib_test_common_rootdir )', [ 'skiponfail.all' ] ],
+				\		[ 'set up runtimepath to include project root directory', ':let &runtimepath .= "," . g:evlib_test_common_rootdir', [ 'skiponfail.all' ] ],
+				\	]
+				\	+ deepcopy( s:EVLibTest_GroupSet_GetDictEntryFromDict( l:args_dict, 'preinit', [] ) )
+	endif
+
+	let l:success = l:success && s:EVLibTest_GroupSet_SetDictionaryEntrySafe( l:args_dict, 'libinit',
+			\		[
+			\			[ 'initialise the library (call evlib#Init())', ':call evlib#Init()', [ 'skiponfail.all' ] ],
+			\		]
+			\	)
+
+	let l:success = l:success && EVLibTest_GroupSet_LoadLibrary_Custom( l:args_dict )
+	" (internal) sanity checking
+	if ( ! l:success ) | call s:EVLibTest_Util_ThrowTestExceptionInternalError() | endif
+
+	return l:success
+endfunction
+
+function EVLibTest_GroupSet_LoadLibrary_Default( ... )
+	return EVLibTest_GroupSet_LoadLibrary_Method_Source( s:EVLibTest_GroupSet_GetDictFromParsList( a:000 ) )
 endfunction
 " }}}
 

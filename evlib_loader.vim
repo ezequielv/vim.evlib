@@ -5,8 +5,21 @@
 " "bare vi support" detection/forwarding
 if has("eval")
 
+" NOTE: inclusion control is currently shared between
+"   {root}/evlib_loader.vim
+"   {root}/autoload/evlib.vim
+"  but '{root}/evlib_loader.vim' does not set g:evlib_loaded
+"  (it merely detects the existing value)
+"
 " inclusion control {{{
 if exists( 'g:evlib_loaded' ) || ( exists( 'g:evlib_disable' ) && g:evlib_disable != 0 )
+	finish
+endif
+" }}}
+
+" top-level sanity checking {{{
+if !( v:version >= 700 )
+	" tried to load with an unsupported version of vim
 	finish
 endif
 " }}}
@@ -54,12 +67,16 @@ function s:EnableEVLib( paths ) abort
 		endif
 		" prev: fnameescape() not always available -- probably better to avoid
 		"  it: exec 'set runtimepath+=' . fnameescape( l:path_found )
-		let &runtimepath = ( ( strlen( &runtimepath ) > 0 ) ? ( &runtimepath . ',' ) : '' ) . l:path_found
-		" FIXME: if evlib#Init() works, consider adding the 'after'
+		let &runtimepath = l:path_found . ( ( strlen( &runtimepath ) > 0 ) ? ( ',' . &runtimepath ) : '' )
+		" MAYBE: if evlib#Init() works, consider adding the 'after'
 		"  path, too (should I use evlib#rtpath#ExtendRuntimePath(),
 		"  or manually add the '/after' path here?)
-		" IDEA: or have 'evlib#Init()' discover its own path (or is it
-		"  in '<sfile>'?), and add the '/after' to the runpath itself
+		" NOTE: we have now the library root directory in
+		"   g:evlib_global_lib_root_dir
+		"   (set in 'autoload/evlib/pvt/lib.vim'), which
+		"   is used in that module's functions
+		"  IDEA: if needed, we could add the '/after' directory here (or
+		"   somewhere else, maybe inside that module?)
 		return evlib#Init()
 	endif
 	return 0

@@ -1,49 +1,52 @@
 " general:
 
-	" FIXME: have a way for modules to refuse to work ('finish' immediately)
+	" DONE: have a way for modules to refuse to work ('finish' immediately)
 	"  if we don't have a fully initialised library *or* if we are not
 	"  initialising (this last code path will be validated by developers, so
 	"  there is no risk of using uninitialised modules from any other module)
-	"
-	"  IDEA: introduce new function evlib#internal#CanLoadLibraryModules() to
-	"   this effect (which should return "true" if it's initialising or if
-	"   it's already initialised)
-	"
-	"   NOTE: but make evlib/internal.vim not require this, of course! :-)
-	"
-	"   NOTE: or put that function directly in 'autoload/evlib.vim', and avoid
-	"    that problem (it's just one function):
-	"    evlib#Internal_CanLoadLibraryModules()
+
+	" TODO: investigate if we can (or even if it makes sense to) make the
+	"  'compatible' setting (this one has a "cascading" effect on other
+	"  options) preserved around module loading ("sourcing"), so if the user
+	"  decides to use 'set compatible', then ideally we'd like to preserve
+	"  that when he's either:
+	"   * sourcing files belonging to this library;
+	"   * calling functions from this library;
+	"   * executing commands from this library;
+	"   * ... ?
+	"  to determine how sensible/doable this is:
+	"   * see what other plugins/libraries do;
+	"   * see how difficult doing this would be
+	"      (I'm thinking of having functions to do the "setup" and "restore"
+	"      for "publicly-facing" sources, at least)
+	"       * so we could use functions defined in the "main" 'evlib.vim' to
+	"          this effect, for example;
+	"   * see (ask?) if anyone would want this feature;
 
 function evlib#Init():
 
-	" FIXME: create a directory from the root:
+	" DONE: create a directory from the root:
 	"  {root}/evlib (or (see below) '{root}/lib/evlib')
 	"  to which this "glob" gets added and expanded:
 	"  {root}/evlib/impl/init/:
-	"   20-test_cmd.vim
-	"    this will install commands such as:
-	"    (TODO: validate from vim's help (see ':h usr_41.txt', then search
-	"    for '<Plug>TypecorrAdd  -> '...)
-	"     g:evlib_cfg_cmd_prefix . 'TestRun'
-	"      which would run:
-	"     <SID>CommandTestRun ...
-	"      which would then run:
-	"     :call <SID>TestRun( ... )<CR>
-	"
-	" FIXME: have autoload/evlib/internal.vim set the directory root,
-	"  knowing its own relative location (fnamemodify());
-	"
-	" FIXME: use glob()
+	"   * 20-test_cmd.vim
+	"      this will install commands such as:
+	"      (TODO: validate from vim's help (see ':h usr_41.txt', then search
+	"      for '<Plug>TypecorrAdd  -> '...)
+	"       g:evlib_cfg_cmd_prefix . 'TestRun'
+	"        which would run:
+	"       <SID>CommandTestRun ...
+	"        which would then run:
+	"       :call <SID>TestRun( ... )<CR>
 	"
 	" (NOTE: see 'versioning', below)
-	" LATER: call evlib#internal#SourceEVLibFiles( 'impl/init/*.vim' )
-	" * make sure that the files are "sourced" in alphabetical order
-	" * so that we can create '01-run_pre_init.vim' and '98-run_post_init.vim'
+	" DONE: call evlib#pvt#lib#SourceEVLibFiles( 'parts/init/*.vim' )
+	" + make sure that the files are "sourced" in alphabetical order
+	" + so that we can create '01-run_pre_init.vim' and '98-run_post_init.vim'
 	"    which will attempt to do
-	"     * 'runtime! lib/evlib/init/pre/*.vim'
-	"     * 'runtime! lib/evlib/init/post/*.vim'
-	"     if the variable 'g:evlib_cfg_init_userscripts_enable
+	"     + 'runtime! lib/evlib/init/pre/*.vim'
+	"     + 'runtime! lib/evlib/init/post/*.vim'
+	"     if the variable 'g:evlib_cfg_init_userscripts_enable'
 	"      (default: non-zero) is set to a non-zero value
 	"    * make the base path ('lib/evlib') configurable
 	"       (TODO: add cfg variable)
@@ -63,11 +66,8 @@ function evlib#Init():
 " library versioning:
 
 	"
-	" TODO: add certain variables so that "user scripts" can detect what
-	"  version of the library is being initialised.
-	"
 	"  IDEA: evlib#GetAPIVersion() -> string ('1.0')
-	"  IDEA: evlib#SupportsAPIVersion( ver_major, ver_minor, ver_patch ) -> {bool}
+	"  DONE: evlib#SupportsAPIVersion( ver_major, ver_minor, ver_patch ) -> {bool}
 	"   example: evlib#SupportsAPIVersion( 1, 0, 3 )
 	"   example: evlib#SupportsAPIVersion( 2, 1, 0 )
 	"
@@ -81,6 +81,66 @@ function evlib#Init():
 	"
 	"  NOTE: every time we add a new function or extend the functionality (the
 	"   API changes), we should increment the minor version number
+	"   (currently in 'lib/evlib/c_main.vim')
+	"
+	"   TODO: or make a function available to library users that is quick and
+	"    safe to call (something like 'exists('*{function}')' but that works
+	"    with 'autoload'-ed modules (exists() does not, AFAICT));
+	"
+	"    see: http://vim.1045645.n5.nabble.com/quot-exists-mylib-func-quot-will-return-0-in-some-cases-even-if-it-s-installed-td1211599.html
+	"
+	"    IDEA: as hinted by ':h autoload' reading an undefined variable using
+	"     the '#' separator will trigger an autoload, which means that we can
+	"     make the algorithm like this:
+	"      * try exists( '*{function}' );
+	"      * decompose the function to replace the last bit with something
+	"         known not to exist:
+	"          :try
+	"           :execute 'silent let l:tmp = ' . {function} . '_someImpossibleVarName'
+	"          :catch " eat exceptions
+	"          :endtry
+	"         this way the 'autoload' will trigger, and we can try the
+	"         'exists()' again;
+	"
+	"      TODO: make this into a reusable function (as we are not using any
+	"       internal library knowledge);
+	"
+	"      NOTE: guard this code against repeatedly reloading (or, in our
+	"       case, re-attempting to 'autoload') the module supposedly
+	"       containing the queried function -- *if* there is a performance
+	"       penalty (we could save a (hashed) list of prefixes that have been
+	"       validated (truncate everything past the last '#' to create that
+	"       key));
+	"
+	"    NOTE: careful with making the function load the modules if they're
+	"     note meant to be loaded (but is the "include guard" good enough
+	"     already so that this wouldn't be an issue?);
+	"
+	"    NOTE: maybe even filter out the input to this function, so that
+	"     '*#pvt#*' functions are always reported as not supported;
+	"
+	"    NOTE: this way, I only have to "update" the official API number once
+	"     I'm happy with the development changes (whilst still providing a way
+	"     for developers to check whether their copy(/fork) of this library
+	"     supports a particular feature they want);
+	"
+	"     example:
+	"      :if evlib#SupportsAPIVersion( 1, 0, 0 )
+	"      		\ && evlib#SupportsFunctionality( [
+	"      		\      '*evlib#rtpath#ExtendVersionedRuntimePath', " vim-compatible
+	"      		\      'feature:a_feature_name', " own format
+	"      		\      'libversion:1,0,0', " own format
+	"      		\     ] )
+	"      		" we have got what we wanted
+	"      :endif
+	"
+	"      NOTE: we could use a dictionary, too (but then the checking order
+	"       could not be guaranteed)
+	"
+	"       NOTE: but I could tell the user that the order is well defined:
+	"        * 'libversion:';
+	"        * 'feature:';
+	"        * '*' ('func'/'functions' for the dictionary); (functions)
 	"
 	"   NOTE: and document in a new file "changes.txt" (or similar) each
 	"    change.
