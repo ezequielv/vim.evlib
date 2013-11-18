@@ -9,6 +9,19 @@ execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_commo
 " }}}
 
 call EVLibTest_Start( 'initialisation - library state checks' )
+
+" IDEA: create a selftest to test evlib#pvt#apiver#SupportsAPIVersion()
+function EVLibTest_Local_CheckAPIVersion()
+	let l:version_v1 = 0
+	let l:version_v2 = 1
+	let l:version_v3 = 0
+
+	return
+				\	evlib#SupportsAPIVersion( l:version_v1, l:version_v2 )
+				\	&&
+				\	evlib#SupportsAPIVersion( l:version_v1, l:version_v2, l:version_v3 )
+endfunction
+
 " ref: function EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust( test_list_precheck, test_list_preinit, test_list_postinit, test_list_epilog )
 call EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust(
 		\		{
@@ -16,10 +29,13 @@ call EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust(
 		\			'precheck':
 		\				[
 		\					[ 'pre-check #1', '!0' ],
+		\					[ 'check API version (inaccessible -> throws)', 'EVLibTest_Local_CheckAPIVersion()', [ 'code.throws' ] ],
 		\				],
 		\			'preinit':
 		\				[
 		\					[ 'pre-init #1', '!0' ],
+		\					[ 'check API version (accessible -> "true")', 'EVLibTest_Local_CheckAPIVersion()' ],
+		\					[ 'call function needing initialised lib (throws)', ':throw EVLibTest_Local_ExceptionTest', [ 'code.throws' ] ],
 		\				],
 		\			'postinit':
 		\				[
