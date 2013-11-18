@@ -635,7 +635,7 @@ function EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust( ... )
 
 	let l:success = l:success && s:EVLibTest_GroupSet_SetDictionaryEntrySafe( l:args_dict, 'libinit',
 			\		[
-			\			[ 'initialise the library (call evlib#Init())', ':call evlib#Init()', [ 'skiponfail.all' ] ],
+			\			[ 'initialise the library (call evlib#Init())', 'evlib#Init()', [ 'skiponfail.all' ] ],
 			\		]
 			\	)
 
