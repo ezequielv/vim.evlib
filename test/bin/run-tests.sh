@@ -113,7 +113,7 @@ f_filter_results()
 			# TODO: still use the awk program below, but force the summary
 			#  (IDEA: add another variable to let all the lines from input through)
 			# IDEA: "grep out" empty lines
-			cat
+			grep -v '^[ \t]*$'
 			;;
 		categ|optimised|summary)
 			l_filter_results_report_summary=1
