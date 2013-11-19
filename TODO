@@ -153,3 +153,29 @@ function evlib#Init():
 	"    version is likely to change before the official tagging/release).
 	"
 
+tests:
+
+	" TODO: add tests for the cases where the user scripts for "library
+	"  initialisation" ('{runtimedir}/lib/evlib/init/{pre,post}/*.vim') throw
+	"  or produce errors that make vim throw an exception.
+	"
+	"  TODO: refactor 'test/vimrc_61_init_libstate_01-ex-local-pass.vim' so
+	"   that some of that functionality can be reused from this new test:
+	"   either make the existing call to
+	"   EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust() into another
+	"   function (parameters to add "hooks"), or make lists for the different
+	"   stages available (trickier, as that the invoked function currently
+	"   takes a dictionary, rather than a list);
+	"
+	"  TODO: refactor the scripts in 'test_trees/init.01/lib/evlib/init/...'
+	"   so that a global variable can be used to make these scripts throw.
+	"   the default would be not to throw, and would give the same
+	"   functionality we've got at the moment (just the counter
+	"   check-and-set).
+	"
+	"   TODO: create a function to be called from these two scripts, as in:
+	"    EVLibTest_Local_UserScriptConditionallyThrow( which_user_script )
+	"    * where {which_user_script} is one from [ 'pre', 'post' ], and the
+	"       function uses the global/script-local variable value to see when
+	"       to throw. the value could be one of: [ '', 'pre', 'post', 'all' ];
+
