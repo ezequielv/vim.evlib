@@ -42,7 +42,7 @@ call EVLibTest_Do_Batch(
 			\			[ 'test 2 (true)', '1' ],
 			\			[ 'test 3 (false) (skip all: true and false, more groups)', '0', [ 'skiponfail.all' ] ],
 			\			[ 'test 4 (true)', '1' ],
-			\			[ 'test 5 (true)', '1' ],
+			\			[ 'test 5 (false)', '0' ],
 			\			[ 'test 6 (true)', '1' ],
 			\			{ 'group': 'group 3' },
 			\			[ 'test 1 (true)', '1' ],
@@ -64,7 +64,7 @@ call EVLibTest_Start( 'validate expected test results (should get 100% pass here
 call EVLibTest_Do_Batch(
 			\		[
 			\			{ 'group': 'skip all results' },
-			\			[ 'global.ntests == 6', 'g:test_skipall_results[ "global" ][ "ntests" ] == 6' ],
+			\			[ 'global.ntests == 14', 'g:test_skipall_results[ "global" ][ "ntests" ] == 14' ],
 			\			[ 'global.npass == 3', 'g:test_skipall_results[ "global" ][ "npass" ] == 3' ],
 			\			[ 'group.active (false)', '! g:test_skipall_results[ "group" ][ "active" ]' ],
 			\			[ 'general.skipping (true)', 'g:test_skipall_results[ "general" ][ "skipping" ]' ],

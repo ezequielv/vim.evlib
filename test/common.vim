@@ -27,9 +27,19 @@ let g:evlib_test_common_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
 let g:evlib_test_common_rootdir = fnamemodify( g:evlib_test_common_testdir, ':h' )
 let g:evlib_test_common_test_testtrees_rootdir = g:evlib_test_common_testdir . '/test_trees'
 
+let s:evlib_test_common_ignore_skipped_tests_completely = 0 " make non-zero to avoid reporting those as 'skipped'
+
 let g:evlib_test_common_ntests = 0
 let g:evlib_test_common_npass = 0
 let s:evlib_test_common_global_skippingtests_flag = 0
+" }}}
+
+" test framework modules {{{
+function EVLibTest_Module_Load( module )
+	let l:filepath = g:evlib_test_common_testdir . '/' . a:module
+	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : l:filepath )
+	return !0 " true
+endfunction
 " }}}
 
 " global test support {{{
@@ -141,11 +151,11 @@ endfunction
 " }}}
 
 " utility functions {{{
-function s:EVLibTest_Util_ThrowTestException_Custom( exception_suffix )
+function EVLibTest_Util_ThrowTestException_Custom( exception_suffix )
 	throw 'EVLibTestException_' . a:exception_suffix
 endfunction
-function s:EVLibTest_Util_ThrowTestExceptionInternalError()
-	return s:EVLibTest_Util_ThrowTestException_Custom( 'InternalError' )
+function EVLibTest_Util_ThrowTestExceptionInternalError()
+	return EVLibTest_Util_ThrowTestException_Custom( 'InternalError' )
 endfunction
 " }}}
 
@@ -158,7 +168,7 @@ function EVLibTest_Group_Begin( group_name )
 	if s:evlib_test_common_in_group_flag
 		call EVLibTest_Group_End()
 	endif
-	if s:evlib_test_common_global_skippingtests_flag
+	if s:evlib_test_common_ignore_skipped_tests_completely && s:evlib_test_common_global_skippingtests_flag
 		return
 	endif
 
@@ -189,7 +199,7 @@ let s:evlib_test_common_in_test_flag = 0
 " (we probably can't send output through 'echomsg', as that would mean that
 " we'd have separate lines for the message and result)
 function EVLibTest_Test_Begin( test_msg )
-	if s:evlib_test_common_global_skippingtests_flag
+	if s:evlib_test_common_ignore_skipped_tests_completely && s:evlib_test_common_global_skippingtests_flag
 		return
 	endif
 	if s:evlib_test_common_in_test_flag
@@ -298,12 +308,22 @@ endfunction
 "        (default is to carry on);
 "  't': "expected to throw": the expression/code should throw an exception.
 "        test will only pass if such a thing happens;
+"  'q': "quiet" mode: force the expression to be quietly executed;
+"  'v': "verbose" mode: force the expression to be executed in 'non-silent'
+"        mode;
 "
 function EVLibTest_Do_Check( test_msg, expr, ... )
 	let l:debug_message_prefix = 'EVLibTest_Do_Check(): '
 
+	let l:flag_silent = !0 " for now, we start in 'quiet' mode
+
 	let l:flags = ( ( a:0 > 0 ) ? a:1 : '' )
-	let l:flag_execute  = ( stridx( l:flags, 'e' ) >= 0 )
+	let l:flag_execute = ( stridx( l:flags, 'e' ) >= 0 )
+	if ( stridx( l:flags, 'v' ) >= 0 )
+		let l:flag_silent = 0
+	elseif ( stridx( l:flags, 'q' ) >= 0 )
+		let l:flag_silent = !0
+	endif
 	" LATER: remove these local variables, as we have no use for them
 	"  IDEA: and use a string/list of flag values to propagate to
 	"   l:test_result_flags
@@ -312,6 +332,8 @@ function EVLibTest_Do_Check( test_msg, expr, ... )
 	let l:flag_shouldthrow = ( stridx( l:flags, 't' ) >= 0 )
 
 	let l:test_result_flags = ''
+	" TODO: change this: use filter() to get rid of elements with a flag ==
+	"  zero, then use join() to produce the end string
 	for l:test_result_flags_mapping_elem_now in
 			\	[
 			\		[ l:flag_skiprest, 's' ],
@@ -326,6 +348,8 @@ function EVLibTest_Do_Check( test_msg, expr, ... )
 	if s:evlib_test_common_global_skippingtests_flag
 		let l:rc = 'skipped'
 	else
+		let l:cmd_pref_silent = ( l:flag_silent ? 'silent ' : '' )
+
 		if type( a:expr ) == type( function( 'EVLibTest_Group_Begin' ) )
 			echoerr l:debug_message_prefix . 'Funcref objects still not supported. fix the code (common.vim) and try again'
 		elseif type( a:expr ) == type( '' )
@@ -333,12 +357,13 @@ function EVLibTest_Do_Check( test_msg, expr, ... )
 			unlet! l:rc_real
 			let l:result_throws = 0
 			try
+				" [debug]: call EVLibTest_Gen_InfoMsg( '[debug] flags: "' . l:flags . '"; about to execute/eval: ' . l:cmd_pref_silent . a:expr ) " FIXME: remove this line
 				if l:flag_execute
-					silent execute a:expr
+					execute l:cmd_pref_silent . 'execute a:expr'
 					" successful execution is mapped to a rc != 0
 					let l:rc_real = 1
 				else
-					silent let l:rc_real = eval( a:expr )
+					execute l:cmd_pref_silent . 'let l:rc_real = eval( a:expr )'
 				endif
 			catch
 				let l:rc_real = 'exception'
@@ -368,6 +393,9 @@ endfunction
 "  [ test_msg, expr [, options ] ]
 "  * dictionary:
 "   * group start: { 'group': GROUP_NAME }
+"      TODO: add support for 'options': OPTIONS, which are a subste from the
+"       ones that can be specified for each test (currently, only 'code.throws'
+"       would be excluded from the "group options" list);
 "   * test entry: { 'test': TEST_MSG, 'expr': TEST_EXPRESSION [, 'options': OPTIONS ] }
 "    * use 'eval()';
 "   * test entry: { 'test': TEST_MSG, 'exec': EX_COMMAND_STRING [, 'options': OPTIONS ] }
@@ -382,9 +410,14 @@ endfunction
 "         the group (or the end of all tests, if there is no active group);
 "     * 'skiponfail.all': if this test fails, skip the test until the end of
 "         all tests (even if there is an active group at the time of failure);
+"     * 'skiponfail.cont': if this test fails, continue with the next test
+"         (this is the default);
+"         TODO: implement this ^^
 "     * 'code.throws': (see EVLibTest_Do_Check() flag 't')
 "        code is expected to throw an exception (test will only pass
 "        if the code/expression throws);
+"     * 'silent': execute the command/expression silently;
+"     * 'verbose': execute the command/expression verbosely (non-silently);
 "
 " for each element in ths list, EVLibTest_Do_Check() is called, so:
 "  * expr: same format and constraints as that function;
@@ -397,7 +430,10 @@ function EVLibTest_Do_Batch( test_list )
 				\	{
 				\		'skiponfail.local': 's',
 				\		'skiponfail.all': 'S',
+				\		'skiponfail.cont': '',
 				\		'code.throws': 't',
+				\		'silent': 'q',
+				\		'verbose': 'v',
 				\	}
 	endif
 
@@ -423,8 +459,44 @@ function EVLibTest_Do_Batch( test_list )
 			call EVLibTest_Group_Begin( l:test_element_now['group'] )
 			let l:in_group_flag = 1
 			let l:flag_handled = 1
+			" TODO: add support for handling default options:
+			"  * 'skiponfail.local'
+			"  * 'skiponfail.all'
+			"  * 'skiponfail.cont'
+			"  * 'silent'
+			"  * 'verbose'
+			"
+			"  IDEA #1: save a string with the options to be passed to the
+			"   underlying function. on each iteration, manipulate the string
+			"   by removing flags and optionally adding others.
+			"
+			"   IDEA #1.1: use a dictionary:
+			"    { OPTION_NAME: [ VALUES_TO_REMOVE, VALUES_TO_ADD ] }
+			"     (but we could get VALUES_TO_ADD from
+			"     s:evlib_test_common_dobatch_options_mapping, when the user
+			"     did not specify it)
+			"    example:
+			"    {
+			"    	'skiponfail.local': [ 'Ss' ],
+			"    	'skiponfail.all': [ 'Ss' ],
+			"    	'skiponfail.cont': [ 'Ss' ],
+			"    },
+			"    IDEA #1.1.1: use a constant for 'Ss', since all options in
+			"     that group need to delete the same set of options before
+			"     adding its own;
+			"    IDEA #1.2: use substitute( l:opt, '[Ss]', VALUES_TO_ADD, 'g' )
+			"     so we can do the whole thing in one go (and now the
+			"     VALUES_TO_REMOVE is a regex, which is just as well);
+			"     example:
+			"      :echo substitute('hello','[el]','e','g')
+			"      heeeo
+			"
+			"  IDEA #2: save the list. on each iteration, manipulate a copy of
+			"   this list;
+			"
 		elseif has_key( l:test_element_now, 'test' )
 			let l:option_flags_now = ''
+			" [debug]: let l:option_flags_now .= 'v' " [debug] enable 'verbose' mode -- FIXME: remove this line
 			if has_key( l:test_element_now, 'options' )
 				" process string and lists, and create the low-level
 				"  flags here (have the user use high level ones for now)
@@ -435,6 +507,7 @@ function EVLibTest_Do_Batch( test_list )
 					let l:option_flag_now = ''
 					if has_key( s:evlib_test_common_dobatch_options_mapping, l:option_elem_now )
 						let l:option_flag_now = s:evlib_test_common_dobatch_options_mapping[ l:option_elem_now ]
+					" TODO: implement: force continuation if this test fails
 					else
 						echoerr l:debug_message_prefix . 'invalid option. value: ' . string( l:option_elem_now )
 					endif
@@ -588,7 +661,7 @@ function EVLibTest_GroupSet_LoadLibrary_Method_Source( ... )
 				\	)
 	let l:success = l:success && EVLibTest_GroupSet_LoadLibrary_Custom( l:args_dict )
 	" (internal) sanity checking
-	if ( ! l:success ) | call s:EVLibTest_Util_ThrowTestExceptionInternalError() | endif
+	if ( ! l:success ) | call EVLibTest_Util_ThrowTestExceptionInternalError() | endif
 
 	return l:success
 endfunction
@@ -641,7 +714,7 @@ function EVLibTest_GroupSet_LoadLibrary_Method_RuntimePathAdjust( ... )
 
 	let l:success = l:success && EVLibTest_GroupSet_LoadLibrary_Custom( l:args_dict )
 	" (internal) sanity checking
-	if ( ! l:success ) | call s:EVLibTest_Util_ThrowTestExceptionInternalError() | endif
+	if ( ! l:success ) | call EVLibTest_Util_ThrowTestExceptionInternalError() | endif
 
 	return l:success
 endfunction
@@ -649,6 +722,7 @@ endfunction
 function EVLibTest_GroupSet_LoadLibrary_Default( ... )
 	return EVLibTest_GroupSet_LoadLibrary_Method_Source( s:EVLibTest_GroupSet_GetDictFromParsList( a:000 ) )
 endfunction
+
 " }}}
 
 " boiler plate -- epilog {{{
