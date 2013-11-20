@@ -1,4 +1,4 @@
-" test/vimrc_61_init_libstate_01-ex-local-pass.vim
+" test/vimrc_62_init_libstate_02-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')
@@ -9,7 +9,7 @@ execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_commo
 " }}}
 
 call EVLibTest_Module_Load( 'libstage.vim' )
-call EVLibTest_LibStages_FullSuite_UserScriptThrow( 'initialisation - library state checks (no user scripts throwing)', 'none' )
+call EVLibTest_LibStages_FullSuite_UserScriptThrow( 'initialisation - library state checks ("pre" user script throws)', 'pre' )
 
 " boilerplate -- epilog {{{
 finish
