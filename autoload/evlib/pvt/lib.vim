@@ -276,3 +276,6 @@ echoerr "the script 'autoload/evlib/pvt/lib.vim' needs support for the following
 
 " }}} boiler plate -- epilog
 
+" vim600: set filetype=vim fileformat=unix:
+" vim: set noexpandtab:
+" vi: set autoindent tabstop=4 shiftwidth=4:

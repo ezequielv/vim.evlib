@@ -4,3 +4,7 @@
 if evlib#eval#GetVariableValueDefault( 'g:evlib_cfg_init_userscripts_enable', 1 )
 	call evlib#pvt#lib#SourceExternalFiles( 'init/post/*.vim' )
 endif
+
+" vim600: set filetype=vim fileformat=unix:
+" vim: set noexpandtab:
+" vi: set autoindent tabstop=4 shiftwidth=4:

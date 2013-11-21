@@ -10,3 +10,6 @@ else
 	call EVLibTest_LibStages_CheckUpdateCounter( 5, 6, 222 )
 endif
 
+" vim600: set filetype=vim fileformat=unix:
+" vim: set noexpandtab:
+" vi: set autoindent tabstop=4 shiftwidth=4:

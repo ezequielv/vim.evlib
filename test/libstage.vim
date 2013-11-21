@@ -279,3 +279,6 @@ echoerr "the script 'test/libstage.vim' needs support for the following: eval"
 
 " }}} boiler plate -- epilog
 
+" vim600: set filetype=vim fileformat=unix:
+" vim: set noexpandtab:
+" vi: set autoindent tabstop=4 shiftwidth=4:

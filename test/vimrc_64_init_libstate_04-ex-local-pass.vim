@@ -18,3 +18,6 @@ endif
 echoerr 'test need the "eval" feature'
 " }}}
 
+" vim600: set filetype=vim fileformat=unix:
+" vim: set noexpandtab:
+" vi: set autoindent tabstop=4 shiftwidth=4:

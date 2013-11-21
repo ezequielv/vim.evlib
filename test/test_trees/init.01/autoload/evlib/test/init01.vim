@@ -10,3 +10,6 @@ function evlib#test#init01#HasAccessToThisTest()
 endfunction
 " [debug] echomsg "hello from init.01/autoload/evlib/test/init01.vim"
 
+" vim600: set filetype=vim fileformat=unix:
+" vim: set noexpandtab:
+" vi: set autoindent tabstop=4 shiftwidth=4:

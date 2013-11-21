@@ -391,3 +391,6 @@ f_getresults()
 f_getresults "$@" | f_filter_results
 # }}}
 
+# vim600: set filetype=sh fileformat=unix:
+# vim: set noexpandtab:
+# vi: set autoindent tabstop=4 shiftwidth=4:
