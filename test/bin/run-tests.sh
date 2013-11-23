@@ -355,12 +355,12 @@ f_getresults()
 {
 	case "${g_opermode}" in
 		program)
-			g_temp_file_vimoutput=`mktemp`
-
 			# validate that we have got parameters (abort if we don't)
 			if ! [ $# -gt 0 ] ; then
 				f_help 1
 			fi
+
+			g_temp_file_vimoutput=`mktemp`
 
 			for l_getresults_file_now in "$@"
 			do
@@ -372,15 +372,22 @@ f_getresults()
 				#  the standard messages (':echo', ':echomsg', etc.) would not
 				#  be output to the stdout/stderr of this script
 				env EVLIB_VIM_TEST_OUTPUTFILE="${g_temp_file_vimoutput}" \
-					${g_cmd_vim} -e -u "${l_getresults_file_now}" +q \
-					2> /dev/null \
-					|| true
+					${g_cmd_vim} \
+							-e \
+							--noplugin \
+							-u "${l_getresults_file_now}" \
+							-U NONE \
+							+q \
+							2> /dev/null \
+						|| true
 			done
 			[ -r "${g_temp_file_vimoutput}" ] && cat "${g_temp_file_vimoutput}"
 			;;
+
 		filter)
 			cat
 			;;
+
 		*)
 			return 1 ;; # internal error
 	esac
