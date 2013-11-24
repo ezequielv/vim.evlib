@@ -157,16 +157,12 @@ f_filter_results()
 					f_array_append_one( result_array, g_current_group_id " (#" g_current_group_number ")" )
 					f_array_append( result_array, g_current_group_lines )
 				}
-				function f_group_end( a_custom_result_flag, a_custom_result_value		, l_current_group_is_success ) {
+				# note: unspecified arg value maps to 0/empty string
+				function f_group_end( a_current_group_is_success ) {
 					if ( g_in_group ) {
-						l_current_group_is_success = g_current_group_success
-						if ( a_custom_result_flag ) {
-							l_current_group_is_success = a_custom_result_value
-						}
-
 						f_group_end_resolved_array( g_current_suite_lines_all )
 
-						if ( l_current_group_is_success ) {
+						if ( a_current_group_is_success ) {
 							f_group_end_resolved_array( g_current_suite_lines_success )
 							++g_current_suite_ngroups_success
 						}
@@ -186,6 +182,7 @@ f_filter_results()
 						f_array_append( a_arr_dst, a_arr_src )
 					}
 				}
+				# note: unspecified arg value maps to 0/empty string
 				function f_suite_end( a_custom_result_flag, a_custom_result_value		, l_current_suite_is_success, l_current_suite_is_error ) {
 					if ( g_in_suite ) {
 						f_group_end() # default arguments
@@ -215,6 +212,14 @@ f_filter_results()
 							f_suite_end_common_lines_update( g_total_lines_error, g_current_suite_lines_error )
 							l_current_suite_is_success = ( ( g_current_suite_ngroups_error == 0 ) && ( g_current_suite_ngroups_success > 0 ) )
 							l_current_suite_is_error = ( ( g_current_suite_ngroups_error != 0 ) )
+							# TODO: validate that ( a_custom_result_value ==
+							#  l_current_suite_is_success ) (that they are
+							#  different than zero in the same way), as we
+							#  should not expect to be given here an overall
+							#  "pass" when we have had groups that were
+							#  considered to have errors (or viceversa)
+							#  NOTE: consider special case when total number
+							#   of groups is zero
 						}
 						if ( l_current_suite_is_success ) {
 							++g_total_nsuites_success
@@ -244,7 +249,6 @@ f_filter_results()
 					g_in_group = 1
 					g_current_group_id = group_id
 					++g_current_group_number
-					g_current_group_success = 1
 				}
 				BEGIN {
 					g_total_lines_success[0] = 0
@@ -293,16 +297,19 @@ f_filter_results()
 							f_debug_lineparsing( "results line -- found_results: " r_endcurrentgrouporsuite_end_result_flag )
 							if ( r_endcurrentgrouporsuite_end_result_flag ) {
 								r_endcurrentgrouporsuite_end_result_value = ( index( r_line_rest, "[pass]" ) > 0 )
+								r_endcurrentgrouporsuite_end_result_iscustom = ( index( r_line_rest, "[custom]" ) > 0 )
+							}
+							else {
+								# for now, not having found the last component
+								#  surrounded by "[" and "]" amounts to having
+								#  parsed "[FAIL]"
+								r_endcurrentgrouporsuite_end_result_value = 0
+								r_endcurrentgrouporsuite_end_result_iscustom = 0
 							}
 						}
 						# example: TEST:    library not intialised yet (safe check) . . . . . [pass]
-						#  old: I was replacing with "\\1"
 						else if ( sub( "^   .*\\[([a-zA-Z\\.-]*)\\][ ]*$", "", r_line_rest ) > 0 ) {
 							f_debug_lineparsing( "test line" )
-							r_line_rest = r_line
-							r_line_test_success = ( match( r_line_rest, "^.*\\[pass\\][ ]*$" ) > 0 )
-							f_debug( " test passed: " r_line_test_success )
-							g_current_group_success = g_current_group_success && r_line_test_success
 							r_addline = 1
 						}
 						# example: TEST:
@@ -310,7 +317,7 @@ f_filter_results()
 							f_debug_lineparsing( "empty line" )
 						}
 						else {
-							f_debug_lineparsing( "unrecognised test line: " )
+							f_debug_lineparsing( "unrecognised test line" )
 							r_addline = 1
 						}
 					}
@@ -349,10 +356,15 @@ f_filter_results()
 					}
 					if ( r_endcurrentgrouporsuite ) {
 						if ( g_in_group ) {
-							f_group_end( r_endcurrentgrouporsuite_end_result_flag, r_endcurrentgrouporsuite_end_result_value )
+							f_group_end( r_endcurrentgrouporsuite_end_result_value )
 						}
 						else if ( g_in_suite ) {
-							f_suite_end( r_endcurrentgrouporsuite_end_result_flag, r_endcurrentgrouporsuite_end_result_value )
+							# for now, we will only consider the value parsed
+							#  from the "RESULTS" line if it was a "custom"
+							#  result -- we will use our internal counters to
+							#  determine what to consider "success" and "error"
+							#  if the result was a normal "pass" or "FAIL"
+							f_suite_end( r_endcurrentgrouporsuite_end_result_iscustom, r_endcurrentgrouporsuite_end_result_value )
 						}
 					}
 				}
