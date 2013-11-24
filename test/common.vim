@@ -546,6 +546,9 @@ endfunction
 "  [ test_msg, expr [, options ] ]
 "  * dictionary:
 "   * group start: { 'group': GROUP_NAME [, 'options': OPTIONS ] }
+"      * MAYBE: LATER: add support for 'prevresults', so the user does not
+"         need the 'groupend' entry for that;
+"   * group end: { 'groupend': 0 [, 'results': RESULTS_DICTIONARY }
 "   * test entry: { 'test': TEST_MSG, 'expr': TEST_EXPRESSION [, 'options': OPTIONS ] }
 "    * use 'eval()';
 "   * test entry: { 'test': TEST_MSG, 'exec': EX_COMMAND_STRING [, 'options': OPTIONS ] }
@@ -616,6 +619,10 @@ function EVLibTest_Do_Batch( test_list )
 			else
 				let l:option_flags_group = l:option_flags_default
 			endif
+		elseif has_key( l:test_element_now, 'groupend' )
+			call EVLibTest_Group_End( ( has_key( l:test_element_now, 'results' ) ? ( l:test_element_now[ 'results' ] ) : {} ) )
+			let l:in_group_flag = 0
+			let l:flag_handled = 1
 		elseif has_key( l:test_element_now, 'test' )
 			if has_key( l:test_element_now, 'options' )
 				" process string and lists, and create the low-level

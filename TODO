@@ -179,3 +179,50 @@ tests:
 	"       function uses the global/script-local variable value to see when
 	"       to throw. the value could be one of: [ '', 'pre', 'post', 'all' ];
 
+	" FIXME: add support in EVLibTest_Group_End() (which probably means
+	"  modify EVLibTest_Gen_OutputTestStats() and friends, too) to consider
+	"  partial 'custom' '[pass]' results to be propagated to the SUITE -- if
+	"  the user does not specify a custom result in EVLibTest_Finalise(), then
+	"  we'd want the partial custom results to be taken into account, so we
+	"  probably need a flag to indicate whether the suite has had success so
+	"  far (in spite of/in addition to the total counters
+	"  (evlib_test_common_ntests, evlib_test_common_npass)), and carefully
+	"  consider tests that could be run outside a group.
+	"
+	"  NOTE: consider what would happen if the partial (group) custom results
+	"   were wrong (or, at least, some of them), and then the final result is
+	"   deemed as 'pass'.  There's an argument to make that suite fail, as the
+	"   user wanted partial results checking to have passed, too.
+	"
+	"   NOTE: maybe make this configurable, in the 'groupend'/'group'
+	"    dictionary entry?
+	"
+	"   IDEA: every time a test group is passed, we account for the 'pass' and
+	"    non-'pass' tests that were validated, thus at the 'end of suite'
+	"    stage we can substract those values from the total counters, and
+	"    proceed as normal (with the results validation, in terms of
+	"    npass/ntests).
+	"    also consider the need (there might not be one) for keeping a boolean
+	"    for 'all groups have succeeded' (the need might be the tag
+	"    '[failed.groups]', proposed below).
+	"
+	"     NOTE: this may need a bit more knowledge of the results message
+	"      production on the part of EVLibTest_Finalise(), for example.
+	"
+	"  IDEA: output:
+	"
+	"   TEST: RESULTS (group total): tests: 4, pass: 2 -- [custom] [pass]
+	"
+	"   TEST: RESULTS (group total): tests: 4, pass: 3 -- [custom] [failed.results] [FAIL]
+	"
+	"	TEST: RESULTS (group total): tests: 4, pass: 4 -- rate: 100.00% [pass]
+	"
+	"   TEST: RESULTS (group total): tests: 4, pass: 2 -- rate: 50.00% [failed.results] [FAIL]
+	"
+	"   TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom] [pass]
+	"
+	"   TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom] [failed.groups] [FAIL]
+	"
+	"   TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom] [failed.groups] [failed.results] [FAIL]
+	"
+

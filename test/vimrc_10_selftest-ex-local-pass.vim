@@ -38,7 +38,7 @@ call EVLibTest_Do_Batch(
 			" group 4 - end: skipped
 
 " save results so far
-let g:test_skipall_results_10_1 = EVLibTest_Gen_GetTestStats()
+let g:mytest_results_10_1 = EVLibTest_Gen_GetTestStats()
 call EVLibTest_Finalise(
 			\		{
 			\			'global': {
@@ -58,10 +58,10 @@ call EVLibTest_Start( 'validate expected test results (suite #10.1)' )
 call EVLibTest_Do_Batch(
 			\		[
 			\			{ 'group': 'skip all results' },
-			\			[ 'global.ntests == 14', 'g:test_skipall_results_10_1[ "global" ][ "ntests" ] == 14' ],
-			\			[ 'global.npass == 3', 'g:test_skipall_results_10_1[ "global" ][ "npass" ] == 3' ],
-			\			[ 'group.active (false)', '! g:test_skipall_results_10_1[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (true)', 'g:test_skipall_results_10_1[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 14', 'g:mytest_results_10_1[ "global" ][ "ntests" ] == 14' ],
+			\			[ 'global.npass == 3', 'g:mytest_results_10_1[ "global" ][ "npass" ] == 3' ],
+			\			[ 'group.active (false)', '! g:mytest_results_10_1[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (true)', 'g:mytest_results_10_1[ "general" ][ "skipping" ]' ],
 			\		]
 			\	)
 call EVLibTest_Finalise()
@@ -75,42 +75,147 @@ call EVLibTest_Do_Batch(
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (false) (one more that is "pass")', '0' ],
 			\			[ 'test 3 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 3,
+			\								'npass': 1,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 1,
+			\							},
+			\					},
+			\			},
 			\			{ 'group': 'group 2 (skip group, local overrides)', 'options': [ 'skiponfail.local' ] },
-			\			[ 'test 0 (save partial results (-group 1)', ':let g:test_skipall_results_10_2_1 = EVLibTest_Gen_GetTestStats()' ],
+			\			[ 'test 0 (save partial results (-group 1)', ':let g:mytest_results_10_2_1 = EVLibTest_Gen_GetTestStats()' ],
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (true)', '1' ],
 			\			[ 'test 3 (false) (continue: true and false, more groups)', '0', [ 'skiponfail.cont' ] ],
 			\			[ 'test 4 (true)', '1' ],
 			\			[ 'test 5 (false) (should skip group (group options))', '0' ],
 			\			[ 'test 6 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 7,
+			\								'npass': 4,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 1,
+			\							},
+			\					},
+			\			},
 			\			{ 'group': 'group 3 (continue (default))', 'options': [ 'skiponfail.cont' ] },
-			\			[ 'test 0 (save partial results (-group 2)', ':let g:test_skipall_results_10_2_2 = EVLibTest_Gen_GetTestStats()' ],
+			\			[ 'test 0 (save partial results (-group 2)', ':let g:mytest_results_10_2_2 = EVLibTest_Gen_GetTestStats()' ],
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (false)', '0' ],
 			\			[ 'test 3 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 4,
+			\								'npass': 3,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 0,
+			\							},
+			\					},
+			\			},
 			\			{ 'group': 'group 4 (continue (default), local overrides)', 'options': [ 'skiponfail.cont' ] },
-			\			[ 'test 0 (save partial results (-group 3)', ':let g:test_skipall_results_10_2_3 = EVLibTest_Gen_GetTestStats()' ],
+			\			[ 'test 0 (save partial results (-group 3)', ':let g:mytest_results_10_2_3 = EVLibTest_Gen_GetTestStats()' ],
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (false) (skip group, more groups, more tests)', '0', [ 'skiponfail.local' ] ],
 			\			[ 'test 3 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 4,
+			\								'npass': 2,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 1,
+			\							},
+			\					},
+			\			},
 			\			{ 'group': 'group 5 (skip all, local overrides)', 'options': [ 'skiponfail.all' ] },
-			\			[ 'test 0 (save partial results (-group 4)', ':let g:test_skipall_results_10_2_4 = EVLibTest_Gen_GetTestStats()' ],
+			\			[ 'test 0 (save partial results (-group 4)', ':let g:mytest_results_10_2_4 = EVLibTest_Gen_GetTestStats()' ],
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (false) (should continue, more groups, more tests)', '0', [ 'skiponfail.cont' ] ],
 			\			[ 'test 3 (true)', '1' ],
 			\			[ 'test 4 (false) (skip group, more groups, more tests)', '0', [ 'skiponfail.local' ] ],
 			\			[ 'test 5 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 6,
+			\								'npass': 3,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 1,
+			\							},
+			\					},
+			\			},
 			\			{ 'group': 'group 6 (skip all, local overrides)', 'options': [ 'skiponfail.all' ] },
-			\			[ 'test 0 (save partial results (-group 5)', ':let g:test_skipall_results_10_2_5 = EVLibTest_Gen_GetTestStats()' ],
+			\			[ 'test 0 (save partial results (-group 5)', ':let g:mytest_results_10_2_5 = EVLibTest_Gen_GetTestStats()' ],
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (false) (should continue, more groups, more tests)', '0', [ 'skiponfail.cont' ] ],
 			\			[ 'test 3 (true)', '1' ],
 			\			[ 'test 4 (false) (skip all, more groups, more tests)', '0' ],
 			\			[ 'test 5 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 6,
+			\								'npass': 3,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 1,
+			\							},
+			\					},
+			\			},
 			\			{ 'group': 'group 90 (should be skipped)' },
 			\			[ 'test 1 (true)', '1' ],
 			\			[ 'test 2 (true)', '1' ],
 			\			[ 'test 3 (true)', '1' ],
+			\			{ 'groupend': 0,
+			\				'results':
+			\					{
+			\						'global': {
+			\							},
+			\						'group': {
+			\								'ntests': 3,
+			\								'npass': 0,
+			\								'active': 1,
+			\							},
+			\						'general': {
+			\								'skipping': 1,
+			\							},
+			\					},
+			\			},
 			\		]
 			\	)
 			" group 1  - end: (1, 2)
@@ -122,7 +227,7 @@ call EVLibTest_Do_Batch(
 			" group 90 - end: (1, 2) + (1, 0) + (3, 3) + (1, 0) + (2, 1) + (1, 0) + (1, 2) + (1, 0) + (2, 3) + (1, 0) + (2, 3) + (0, 3)
 
 " save results so far
-let g:test_skipall_results_10_2_last = EVLibTest_Gen_GetTestStats()
+let g:mytest_results_10_2_last = EVLibTest_Gen_GetTestStats()
 call EVLibTest_Finalise(
 			\		{
 			\			'global': {
@@ -142,35 +247,35 @@ call EVLibTest_Start( 'validate expected test results (suite #10.2)' )
 call EVLibTest_Do_Batch(
 			\		[
 			\			{ 'group': 'suite #10.1 - group 1 - results' },
-			\			[ 'global.ntests == 3', 'g:test_skipall_results_10_2_1[ "global" ][ "ntests" ] == 3' ],
-			\			[ 'global.npass == 1', 'g:test_skipall_results_10_2_1[ "global" ][ "npass" ] == 1' ],
-			\			[ 'group.active (true) (read from group)', 'g:test_skipall_results_10_2_1[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (false) (read from group)', '! g:test_skipall_results_10_2_1[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 3', 'g:mytest_results_10_2_1[ "global" ][ "ntests" ] == 3' ],
+			\			[ 'global.npass == 1', 'g:mytest_results_10_2_1[ "global" ][ "npass" ] == 1' ],
+			\			[ 'group.active (true) (read from group)', 'g:mytest_results_10_2_1[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (false) (read from group)', '! g:mytest_results_10_2_1[ "general" ][ "skipping" ]' ],
 			\			{ 'group': 'suite #10.1 - group 2 - results' },
-			\			[ 'global.ntests == 10', 'g:test_skipall_results_10_2_2[ "global" ][ "ntests" ] == 10' ],
-			\			[ 'global.npass == 5', 'g:test_skipall_results_10_2_2[ "global" ][ "npass" ] == 5' ],
-			\			[ 'group.active (true) (read from group)', 'g:test_skipall_results_10_2_2[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (false) (read from group)', '! g:test_skipall_results_10_2_2[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 10', 'g:mytest_results_10_2_2[ "global" ][ "ntests" ] == 10' ],
+			\			[ 'global.npass == 5', 'g:mytest_results_10_2_2[ "global" ][ "npass" ] == 5' ],
+			\			[ 'group.active (true) (read from group)', 'g:mytest_results_10_2_2[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (false) (read from group)', '! g:mytest_results_10_2_2[ "general" ][ "skipping" ]' ],
 			\			{ 'group': 'suite #10.1 - group 3 - results' },
-			\			[ 'global.ntests == 14', 'g:test_skipall_results_10_2_3[ "global" ][ "ntests" ] == 14' ],
-			\			[ 'global.npass == 8', 'g:test_skipall_results_10_2_3[ "global" ][ "npass" ] == 8' ],
-			\			[ 'group.active (true) (read from group)', 'g:test_skipall_results_10_2_3[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (false) (read from group)', '! g:test_skipall_results_10_2_3[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 14', 'g:mytest_results_10_2_3[ "global" ][ "ntests" ] == 14' ],
+			\			[ 'global.npass == 8', 'g:mytest_results_10_2_3[ "global" ][ "npass" ] == 8' ],
+			\			[ 'group.active (true) (read from group)', 'g:mytest_results_10_2_3[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (false) (read from group)', '! g:mytest_results_10_2_3[ "general" ][ "skipping" ]' ],
 			\			{ 'group': 'suite #10.1 - group 4 - results' },
-			\			[ 'global.ntests == 18', 'g:test_skipall_results_10_2_4[ "global" ][ "ntests" ] == 18' ],
-			\			[ 'global.npass == 10', 'g:test_skipall_results_10_2_4[ "global" ][ "npass" ] == 10' ],
-			\			[ 'group.active (true) (read from group)', 'g:test_skipall_results_10_2_4[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (false) (read from group)', '! g:test_skipall_results_10_2_4[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 18', 'g:mytest_results_10_2_4[ "global" ][ "ntests" ] == 18' ],
+			\			[ 'global.npass == 10', 'g:mytest_results_10_2_4[ "global" ][ "npass" ] == 10' ],
+			\			[ 'group.active (true) (read from group)', 'g:mytest_results_10_2_4[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (false) (read from group)', '! g:mytest_results_10_2_4[ "general" ][ "skipping" ]' ],
 			\			{ 'group': 'suite #10.1 - group 5 - results' },
-			\			[ 'global.ntests == 24', 'g:test_skipall_results_10_2_5[ "global" ][ "ntests" ] == 24' ],
-			\			[ 'global.npass == 13', 'g:test_skipall_results_10_2_5[ "global" ][ "npass" ] == 13' ],
-			\			[ 'group.active (true) (read from group)', 'g:test_skipall_results_10_2_5[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (false) (read from group)', '! g:test_skipall_results_10_2_5[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 24', 'g:mytest_results_10_2_5[ "global" ][ "ntests" ] == 24' ],
+			\			[ 'global.npass == 13', 'g:mytest_results_10_2_5[ "global" ][ "npass" ] == 13' ],
+			\			[ 'group.active (true) (read from group)', 'g:mytest_results_10_2_5[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (false) (read from group)', '! g:mytest_results_10_2_5[ "general" ][ "skipping" ]' ],
 			\			{ 'group': 'suite #10.1 - group 6 - results' },
-			\			[ 'global.ntests == 33', 'g:test_skipall_results_10_2_last[ "global" ][ "ntests" ] == 33' ],
-			\			[ 'global.npass == 16', 'g:test_skipall_results_10_2_last[ "global" ][ "npass" ] == 16' ],
-			\			[ 'group.active (false) (read at global scope)', '! g:test_skipall_results_10_2_last[ "group" ][ "active" ]' ],
-			\			[ 'general.skipping (true) (read at global scope)', 'g:test_skipall_results_10_2_last[ "general" ][ "skipping" ]' ],
+			\			[ 'global.ntests == 33', 'g:mytest_results_10_2_last[ "global" ][ "ntests" ] == 33' ],
+			\			[ 'global.npass == 16', 'g:mytest_results_10_2_last[ "global" ][ "npass" ] == 16' ],
+			\			[ 'group.active (false) (read at global scope)', '! g:mytest_results_10_2_last[ "group" ][ "active" ]' ],
+			\			[ 'general.skipping (true) (read at global scope)', 'g:mytest_results_10_2_last[ "general" ][ "skipping" ]' ],
 			\		]
 			\	)
 call EVLibTest_Finalise()
