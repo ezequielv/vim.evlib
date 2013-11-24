@@ -199,24 +199,30 @@ endfunction
 "    EVLibTest_Gen_CheckTestStats()
 function EVLibTest_Gen_OutputTestStats( msg, ntests, npass, src_results_user )
 	let l:flag_hasuserresults = ( ! empty( a:src_results_user ) )
+
 	if l:flag_hasuserresults
-		let l:user_results_success = EVLibTest_Gen_CheckTestStats( a:src_results_user )
+		let l:results_success = EVLibTest_Gen_CheckTestStats( a:src_results_user )
+	else
+		let l:results_success = ( a:ntests == a:npass )
+		" vim 7.0 does not have str2float() (or float support, for that matter)
+		let l:pass_rate_strnum = ( a:npass * 10000 ) / ( a:ntests ? a:ntests : 1 )
+		" pad with zeroes if the result is too small
+		if ( strlen( l:pass_rate_strnum ) < 3 )
+			let l:pass_rate_strnum = repeat( '0', 3 - strlen( l:pass_rate_strnum ) ) . l:pass_rate_strnum
+		endif
+		let l:pass_rate_msg = 'rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%'
 	endif
-	" vim 7.0 does not have str2float() (or float support, for that matter)
-	let l:pass_rate_strnum = ( a:npass * 10000 ) / ( a:ntests ? a:ntests : 1 )
-	" pad with zeroes if the result is too small
-	if ( strlen( l:pass_rate_strnum ) < 3 )
-		let l:pass_rate_strnum = repeat( '0', 3 - strlen( l:pass_rate_strnum ) ) . l:pass_rate_strnum
-	endif
+
 	call EVLibTest_Gen_OutputLine(
 			\		'RESULTS (' . a:msg . '): ' .
 			\		'tests: ' . string( a:ntests ) .
 			\		', pass: ' . string( a:npass ) .
-			\		' -- rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%' .
+			\		' --' .
 			\		( 	l:flag_hasuserresults
-			\			?	' [custom.' . ( l:user_results_success ? 'pass' : 'FAIL' ) . ']'
-			\			:	''
+			\			?	' [custom]'
+			\			:	' ' . l:pass_rate_msg
 			\		) .
+			\		' [' . ( l:results_success ? 'pass' : 'FAIL' ) . ']' .
 			\		''
 			\	)
 endfunction

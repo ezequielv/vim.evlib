@@ -277,26 +277,22 @@ f_filter_results()
 							f_debug_lineparsing( "group start" )
 							f_group_begin( r_line )
 						}
-						# example: TEST: RESULTS (group total): tests: 7, pass: 7 -- rate: 100.00%
-						# example: TEST: RESULTS (Total): tests: 7, pass: 7 -- rate: 100.00%
-						# example: TEST: RESULTS (Total): tests: 6, pass: 3 -- rate: 50.00% [custom.pass]
-						# example: TEST: RESULTS (Total): tests: 6, pass: 3 -- rate: 50.00% [custom.FAIL]
+						# example: TEST: RESULTS (Total): tests: 14, pass: 3 -- [custom] [pass]
+						# example: TEST: RESULTS (Total): tests: 4, pass: 4 -- rate: 100.00% [pass]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom] [FAIL]
+						# example: TEST: RESULTS (Total): tests: 7, pass: 6 -- rate: 85.71% [FAIL]
 						#  old: I was replacing with "\\1"
-						else if ( sub( "^RESULTS \\(([^\\)]*)\\).*rate: [0-9\\.%]*", "", r_line_rest ) > 0 ) {
+						else if ( sub( "^RESULTS \\(([^\\)]*)\\).* -- ", "", r_line_rest ) > 0 ) {
 							f_debug_lineparsing( "results line" )
-							# FIXME: get the "user"/"custom" pass/FAIL result (conditionally produced)
-							#  IDEA: store the "error" lines (group/suite) tentatively, until the suite is finished
 							r_addline = 1
 							r_addseparator = 1
 							r_endcurrentgrouporsuite = 1
-							# determine whether we have got a custom result
-							r_line_rest = r_line
-							r_endcurrentgrouporsuite_custom_result_flag = 1
-							r_endcurrentgrouporsuite_custom_result_flag = r_endcurrentgrouporsuite_custom_result_flag && ( sub( "^.* \\[custom\\.", "", r_line_rest ) > 0 )
-							r_endcurrentgrouporsuite_custom_result_flag = r_endcurrentgrouporsuite_custom_result_flag && ( sub( "\\].*$", "", r_line_rest ) > 0 )
-							f_debug_lineparsing( "results line -- replaced around the \"[custom.\" string" )
-							if ( r_endcurrentgrouporsuite_custom_result_flag ) {
-								r_endcurrentgrouporsuite_custom_result_value = ( r_line_rest == "pass" )
+							# determine whether we have got an "end" result
+							r_endcurrentgrouporsuite_end_result_flag = 1
+							r_endcurrentgrouporsuite_end_result_flag = r_endcurrentgrouporsuite_end_result_flag && ( match( r_line_rest, "\\[[^-]*$" ) > 0 )
+							f_debug_lineparsing( "results line -- found_results: " r_endcurrentgrouporsuite_end_result_flag )
+							if ( r_endcurrentgrouporsuite_end_result_flag ) {
+								r_endcurrentgrouporsuite_end_result_value = ( index( r_line_rest, "[pass]" ) > 0 )
 							}
 						}
 						# example: TEST:    library not intialised yet (safe check) . . . . . [pass]
@@ -353,10 +349,10 @@ f_filter_results()
 					}
 					if ( r_endcurrentgrouporsuite ) {
 						if ( g_in_group ) {
-							f_group_end( r_endcurrentgrouporsuite_custom_result_flag, r_endcurrentgrouporsuite_custom_result_value )
+							f_group_end( r_endcurrentgrouporsuite_end_result_flag, r_endcurrentgrouporsuite_end_result_value )
 						}
 						else if ( g_in_suite ) {
-							f_suite_end( r_endcurrentgrouporsuite_custom_result_flag, r_endcurrentgrouporsuite_custom_result_value )
+							f_suite_end( r_endcurrentgrouporsuite_end_result_flag, r_endcurrentgrouporsuite_end_result_value )
 						}
 					}
 				}
