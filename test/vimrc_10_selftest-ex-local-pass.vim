@@ -1,4 +1,4 @@
-" test/vimrc_10_selftest-ex-local-nopass.vim
+" test/vimrc_10_selftest-ex-local-pass.vim
 
 " boilerplate -- prolog {{{
 if has('eval')
@@ -9,7 +9,7 @@ execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_commo
 " }}}
 
 " suite #10.1 {{{
-call EVLibTest_Start( 'suite #10.1: skip local/all test (results in separate test suite) [nopass]' )
+call EVLibTest_Start( 'suite #10.1: skip local/all test [custom]' )
 call EVLibTest_Do_Batch(
 			\		[
 			\			{ 'group': 'group 1' },
@@ -39,7 +39,20 @@ call EVLibTest_Do_Batch(
 
 " save results so far
 let g:test_skipall_results_10_1 = EVLibTest_Gen_GetTestStats()
-call EVLibTest_Finalise()
+call EVLibTest_Finalise(
+			\		{
+			\			'global': {
+			\					'ntests': 14,
+			\					'npass': 3,
+			\				},
+			\			'group': {
+			\					'active': 0,
+			\				},
+			\			'general': {
+			\					'skipping': 1,
+			\				},
+			\		}
+			\	)
 
 call EVLibTest_Start( 'validate expected test results (suite #10.1)' )
 call EVLibTest_Do_Batch(
@@ -55,7 +68,7 @@ call EVLibTest_Finalise()
 " }}}
 
 " suite #10.2 {{{
-call EVLibTest_Start( 'suite #10.2: group options (skip/verbose) (results in separate test suite) [nopass]' )
+call EVLibTest_Start( 'suite #10.2: group options (skip/verbose) [custom]' )
 call EVLibTest_Do_Batch(
 			\		[
 			\			{ 'group': 'group 1 (skip group)', 'options': [ 'skiponfail.local' ] },
@@ -110,7 +123,20 @@ call EVLibTest_Do_Batch(
 
 " save results so far
 let g:test_skipall_results_10_2_last = EVLibTest_Gen_GetTestStats()
-call EVLibTest_Finalise()
+call EVLibTest_Finalise(
+			\		{
+			\			'global': {
+			\					'ntests': 33,
+			\					'npass': 16,
+			\				},
+			\			'group': {
+			\					'active': 0,
+			\				},
+			\			'general': {
+			\					'skipping': 1,
+			\				},
+			\		}
+			\	)
 
 call EVLibTest_Start( 'validate expected test results (suite #10.2)' )
 call EVLibTest_Do_Batch(

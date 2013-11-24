@@ -65,14 +65,17 @@ function EVLibTest_Start( suite_name )
 	call EVLibTest_Gen_OutputLine( '' )
 endfunction
 
-function EVLibTest_Finalise()
+function EVLibTest_Finalise( ... )
+	" note: do not check results if the user did not provide a dictionary
+	let l:src_results_user = ( ( a:0 > 0 ) ? ( a:1 ) : {} )
+
 	if s:evlib_test_common_in_test_flag
 		call EVLibTest_Test_EndUncertain()
 	endif
 	if s:evlib_test_common_in_group_flag
 		call EVLibTest_Group_End()
 	endif
-	call EVLibTest_Gen_OutputTestStats( 'Total', g:evlib_test_common_ntests, g:evlib_test_common_npass )
+	call EVLibTest_Gen_OutputTestStats( 'Total', g:evlib_test_common_ntests, g:evlib_test_common_npass, l:src_results_user )
 	call EVLibTest_Gen_OutputLine( '' )
 	let g:evlib_test_common_ntests = 0
 	let g:evlib_test_common_npass = 0
@@ -140,14 +143,82 @@ function EVLibTest_Gen_GetTestStats()
 	return l:result_dict
 endfunction
 
-function EVLibTest_Gen_OutputTestStats( msg, ntests, npass )
+function s:EVLibTest_Gen_CheckTestStats_DoDict( src_results_user, src_results_actual )
+	let l:success = !0 " true
+
+	" make sure we have been given dictionaries as inputs
+	let l:success = l:success && ( type( a:src_results_user ) == type( a:src_results_actual ) ) && ( type( a:src_results_user ) == type( {} ) )
+	" (internal) sanity checking
+	if ( ! l:success ) | call EVLibTest_Util_ThrowTestExceptionInternalError() | endif
+
+	if l:success
+		for l:results_user_dict_key_now in sort( keys( a:src_results_user ) )
+			let l:success = l:success && has_key( a:src_results_actual, l:results_user_dict_key_now )
+			if l:success
+				let l:results_user_dict_entry_now   = a:src_results_user[   l:results_user_dict_key_now ]
+				let l:results_actual_dict_entry_now = a:src_results_actual[ l:results_user_dict_key_now ]
+				let l:success = l:success && ( type( l:results_user_dict_entry_now ) == type( l:results_actual_dict_entry_now ) )
+				if ( type( l:results_user_dict_entry_now ) == type( {} ) )
+					" call recursively to compare sub-dictionary
+					let l:success = l:success && s:EVLibTest_Gen_CheckTestStats_DoDict( l:results_user_dict_entry_now, l:results_actual_dict_entry_now )
+				else
+					" compare as scalar values
+					let l:success = l:success && ( l:results_user_dict_entry_now == l:results_actual_dict_entry_now )
+					" TODO: report failure nicely (create new error reporing function)
+				endif
+			endif
+			" abort the loop on error
+			if ( ! l:success )
+				break
+			endif
+		endfor
+	endif
+
+	return l:success
+endfunction
+
+" returns 'success'
+"
+" args: src_results_user [, src_results_actual ]
+"
+"  * src_results_actual: if unspecified, get values from
+"     EVLibTest_Gen_GetTestStats();
+"
+function EVLibTest_Gen_CheckTestStats( src_results_user, ... )
+	let l:success = !0 " true
+	let l:src_results_actual = ( ( a:0 > 0 ) ? a:1 : EVLibTest_Gen_GetTestStats() )
+
+	let l:success = l:success && s:EVLibTest_Gen_CheckTestStats_DoDict( a:src_results_user, l:src_results_actual )
+
+	return l:success
+endfunction
+
+" args:
+"  * if empty( src_results_user ), we do not check results;
+"  * if !empty( src_results_user ), we will check results via
+"    EVLibTest_Gen_CheckTestStats()
+function EVLibTest_Gen_OutputTestStats( msg, ntests, npass, src_results_user )
+	let l:flag_hasuserresults = ( ! empty( a:src_results_user ) )
+	if l:flag_hasuserresults
+		let l:user_results_success = EVLibTest_Gen_CheckTestStats( a:src_results_user )
+	endif
 	" vim 7.0 does not have str2float() (or float support, for that matter)
 	let l:pass_rate_strnum = ( a:npass * 10000 ) / ( a:ntests ? a:ntests : 1 )
 	" pad with zeroes if the result is too small
 	if ( strlen( l:pass_rate_strnum ) < 3 )
 		let l:pass_rate_strnum = repeat( '0', 3 - strlen( l:pass_rate_strnum ) ) . l:pass_rate_strnum
 	endif
-	call EVLibTest_Gen_OutputLine( 'RESULTS (' . a:msg . '): tests: ' . string( a:ntests ) . ', pass: ' . string( a:npass ) . ' -- rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%' )
+	call EVLibTest_Gen_OutputLine(
+			\		'RESULTS (' . a:msg . '): ' .
+			\		'tests: ' . string( a:ntests ) .
+			\		', pass: ' . string( a:npass ) .
+			\		' -- rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%' .
+			\		( 	l:flag_hasuserresults
+			\			?	' [custom.' . ( l:user_results_success ? 'pass' : 'FAIL' ) . ']'
+			\			:	''
+			\		) .
+			\		''
+			\	)
 endfunction
 " }}}
 
@@ -177,10 +248,13 @@ function EVLibTest_Group_Begin( group_name )
 	let s:evlib_test_common_in_group_flag = 1
 endfunction
 
-function EVLibTest_Group_End()
+function EVLibTest_Group_End( ... )
+	" note: do not check results if the user did not provide a dictionary
+	let l:src_results_user = ( ( a:0 > 0 ) ? ( a:1 ) : {} )
+
 	if s:evlib_test_common_in_group_flag
 		" report group results
-		call EVLibTest_Gen_OutputTestStats( 'group total', g:evlib_test_common_group_ntests, g:evlib_test_common_group_npass )
+		call EVLibTest_Gen_OutputTestStats( 'group total', g:evlib_test_common_group_ntests, g:evlib_test_common_group_npass, l:src_results_user )
 		call EVLibTest_Gen_OutputLine( '' )
 	endif
 	let s:evlib_test_common_in_group_flag = 0

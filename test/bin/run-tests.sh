@@ -157,10 +157,16 @@ f_filter_results()
 					f_array_append_one( result_array, g_current_group_id " (#" g_current_group_number ")" )
 					f_array_append( result_array, g_current_group_lines )
 				}
-				function f_group_end() {
+				function f_group_end( a_custom_result_flag, a_custom_result_value		, l_current_group_is_success ) {
 					if ( g_in_group ) {
-						# do stuff at the end of a group
-						if ( g_current_group_success ) {
+						l_current_group_is_success = g_current_group_success
+						if ( a_custom_result_flag ) {
+							l_current_group_is_success = a_custom_result_value
+						}
+
+						f_group_end_resolved_array( g_current_suite_lines_all )
+
+						if ( l_current_group_is_success ) {
 							f_group_end_resolved_array( g_current_suite_lines_success )
 							++g_current_suite_ngroups_success
 						}
@@ -168,9 +174,10 @@ f_filter_results()
 							f_group_end_resolved_array( g_current_suite_lines_error )
 							++g_current_suite_ngroups_error
 						}
+
 						g_in_group = 0
-						g_current_group_lines[0] = 0
 					}
+					g_current_group_lines[0] = 0
 				}
 				function f_suite_end_common_lines_update( a_arr_dst, a_arr_src ) {
 					if ( a_arr_src[ 0 ] > 0 ) {
@@ -179,27 +186,52 @@ f_filter_results()
 						f_array_append( a_arr_dst, a_arr_src )
 					}
 				}
-				function f_suite_end() {
+				function f_suite_end( a_custom_result_flag, a_custom_result_value		, l_current_suite_is_success, l_current_suite_is_error ) {
 					if ( g_in_suite ) {
-						f_group_end()
-						# do stuff at the end of the suite
-						f_suite_end_common_lines_update( g_total_lines_success, g_current_suite_lines_success )
-						f_suite_end_common_lines_update( g_total_lines_error, g_current_suite_lines_error )
-						if ( ( g_current_suite_ngroups_error == 0 ) && ( g_current_suite_ngroups_success > 0 ) ) {
+						f_group_end() # default arguments
+
+						if ( a_custom_result_flag ) {
+							if ( a_custom_result_value ) {
+								f_suite_end_common_lines_update( g_total_lines_success, g_current_suite_lines_all )
+							}
+							else {
+								f_suite_end_common_lines_update( g_total_lines_error, g_current_suite_lines_all )
+							}
+							# set control flags (used below)
+							l_current_suite_is_success = 0
+							l_current_suite_is_error = 0
+							# get the total number of groups to count as either all success or all errors
+							if ( ( g_current_suite_ngroups_success + g_current_suite_ngroups_error ) > 0 ) {
+								if ( a_custom_result_value ) {
+									l_current_suite_is_success = 1
+								}
+								else {
+									l_current_suite_is_error = 1
+								}
+							}
+						}
+						else {
+							f_suite_end_common_lines_update( g_total_lines_success, g_current_suite_lines_success )
+							f_suite_end_common_lines_update( g_total_lines_error, g_current_suite_lines_error )
+							l_current_suite_is_success = ( ( g_current_suite_ngroups_error == 0 ) && ( g_current_suite_ngroups_success > 0 ) )
+							l_current_suite_is_error = ( ( g_current_suite_ngroups_error != 0 ) )
+						}
+						if ( l_current_suite_is_success ) {
 							++g_total_nsuites_success
 							f_array_append_one( g_total_lines_suites_success, g_current_suite_id )
 						}
-						else if ( ( g_current_suite_ngroups_error != 0 ) ) {
+						else if ( l_current_suite_is_error ) {
 							++g_total_nsuites_failure
 							f_array_append_one( g_total_lines_suites_failure, g_current_suite_id )
 						}
 						g_in_suite = 0
-						g_current_suite_lines_success[0] = 0
-						g_current_suite_lines_error[0] = 0
 					}
+					g_current_suite_lines_all[0] = 0
+					g_current_suite_lines_success[0] = 0
+					g_current_suite_lines_error[0] = 0
 				}
 				function f_suite_begin( suite_id ) {
-					f_suite_end()
+					f_suite_end() # default arguments
 					g_in_suite = 1
 					g_current_suite_id = suite_id
 					g_current_suite_success = 1
@@ -208,7 +240,7 @@ f_filter_results()
 					g_current_suite_ngroups_error = 0
 				}
 				function f_group_begin( group_id ) {
-					f_group_end()
+					f_group_end() # default arguments
 					g_in_group = 1
 					g_current_group_id = group_id
 					++g_current_group_number
@@ -221,6 +253,10 @@ f_filter_results()
 					g_total_lines_suites_failure[0] = 0
 					g_in_group = 0
 					g_in_suite = 0
+					# initialise some arrays (even if there is not a
+					#  group/suite currently active)
+					f_group_end() # default arguments
+					f_suite_end() # default arguments
 				}
 				{
 					r_line = $0
@@ -243,12 +279,25 @@ f_filter_results()
 						}
 						# example: TEST: RESULTS (group total): tests: 7, pass: 7 -- rate: 100.00%
 						# example: TEST: RESULTS (Total): tests: 7, pass: 7 -- rate: 100.00%
+						# example: TEST: RESULTS (Total): tests: 6, pass: 3 -- rate: 50.00% [custom.pass]
+						# example: TEST: RESULTS (Total): tests: 6, pass: 3 -- rate: 50.00% [custom.FAIL]
 						#  old: I was replacing with "\\1"
-						else if ( sub( "^RESULTS \\(([^\\)]*)\\).*rate: [0-9\\.%]*[ ]*$", "", r_line_rest ) > 0 ) {
+						else if ( sub( "^RESULTS \\(([^\\)]*)\\).*rate: [0-9\\.%]*", "", r_line_rest ) > 0 ) {
 							f_debug_lineparsing( "results line" )
+							# FIXME: get the "user"/"custom" pass/FAIL result (conditionally produced)
+							#  IDEA: store the "error" lines (group/suite) tentatively, until the suite is finished
 							r_addline = 1
 							r_addseparator = 1
 							r_endcurrentgrouporsuite = 1
+							# determine whether we have got a custom result
+							r_line_rest = r_line
+							r_endcurrentgrouporsuite_custom_result_flag = 1
+							r_endcurrentgrouporsuite_custom_result_flag = r_endcurrentgrouporsuite_custom_result_flag && ( sub( "^.* \\[custom\\.", "", r_line_rest ) > 0 )
+							r_endcurrentgrouporsuite_custom_result_flag = r_endcurrentgrouporsuite_custom_result_flag && ( sub( "\\].*$", "", r_line_rest ) > 0 )
+							f_debug_lineparsing( "results line -- replaced around the \"[custom.\" string" )
+							if ( r_endcurrentgrouporsuite_custom_result_flag ) {
+								r_endcurrentgrouporsuite_custom_result_value = ( r_line_rest == "pass" )
+							}
 						}
 						# example: TEST:    library not intialised yet (safe check) . . . . . [pass]
 						#  old: I was replacing with "\\1"
@@ -281,6 +330,10 @@ f_filter_results()
 							}
 						}
 						else if ( g_in_suite ) {
+							f_array_append_one( g_current_suite_lines_all, r_line )
+							if ( r_addseparator ) {
+								f_array_append_one( g_current_suite_lines_all, "" )
+							}
 							if ( g_current_suite_ngroups_success > 0 ) {
 								f_array_append_one( g_current_suite_lines_success, r_line )
 								if ( r_addseparator ) {
@@ -300,10 +353,10 @@ f_filter_results()
 					}
 					if ( r_endcurrentgrouporsuite ) {
 						if ( g_in_group ) {
-							f_group_end()
+							f_group_end( r_endcurrentgrouporsuite_custom_result_flag, r_endcurrentgrouporsuite_custom_result_value )
 						}
 						else if ( g_in_suite ) {
-							f_suite_end()
+							f_suite_end( r_endcurrentgrouporsuite_custom_result_flag, r_endcurrentgrouporsuite_custom_result_value )
 						}
 					}
 				}
@@ -327,7 +380,7 @@ f_filter_results()
 					}
 				}
 				END {
-					f_suite_end()
+					f_suite_end() # default arguments
 
 					l_report_arrays_margin = 3
 					l_report_prefix = "REPORT: "
