@@ -281,10 +281,16 @@ f_filter_results()
 							f_debug_lineparsing( "group start" )
 							f_group_begin( r_line )
 						}
-						# example: TEST: RESULTS (Total): tests: 14, pass: 3 -- [custom] [pass]
-						# example: TEST: RESULTS (Total): tests: 4, pass: 4 -- rate: 100.00% [pass]
-						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom] [FAIL]
-						# example: TEST: RESULTS (Total): tests: 7, pass: 6 -- rate: 85.71% [FAIL]
+						# example: TEST: RESULTS (Total): tests: 14, pass: 3 -- [custom.results] [pass]
+						# example: TEST: RESULTS (Total): tests: 27, pass: 27 -- rate: 100.00% [pass]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.groups] [custom.results] [failed.results] [FAIL]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.groups] [custom.results] [pass]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.groups] [failed.groups] [custom.results] [FAIL]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.groups] [failed.groups] [custom.results] [failed.results] [FAIL]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.groups] [failed.groups] [FAIL]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.groups] [pass]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.results] [failed.results] [FAIL]
+						# example: TEST: RESULTS (Total): tests: 33, pass: 16 -- [custom.results] [pass]
 						#  old: I was replacing with "\\1"
 						else if ( sub( "^RESULTS \\(([^\\)]*)\\).* -- ", "", r_line_rest ) > 0 ) {
 							f_debug_lineparsing( "results line" )
@@ -297,7 +303,9 @@ f_filter_results()
 							f_debug_lineparsing( "results line -- found_results: " r_endcurrentgrouporsuite_end_result_flag )
 							if ( r_endcurrentgrouporsuite_end_result_flag ) {
 								r_endcurrentgrouporsuite_end_result_value = ( index( r_line_rest, "[pass]" ) > 0 )
-								r_endcurrentgrouporsuite_end_result_iscustom = ( index( r_line_rest, "[custom]" ) > 0 )
+								# note: we might have to consider "[custom.groups]", too
+								#  (but it seems to work as expected as it is)
+								r_endcurrentgrouporsuite_end_result_iscustom = ( index( r_line_rest, "[custom.results]" ) > 0 )
 							}
 							else {
 								# for now, not having found the last component

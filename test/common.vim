@@ -27,11 +27,6 @@ let g:evlib_test_common_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
 let g:evlib_test_common_rootdir = fnamemodify( g:evlib_test_common_testdir, ':h' )
 let g:evlib_test_common_test_testtrees_rootdir = g:evlib_test_common_testdir . '/test_trees'
 
-let s:evlib_test_common_ignore_skipped_tests_completely = 0 " make non-zero to avoid reporting those as 'skipped'
-
-let g:evlib_test_common_ntests = 0
-let g:evlib_test_common_npass = 0
-let s:evlib_test_common_global_skippingtests_flag = 0
 " }}}
 
 " test framework modules {{{
@@ -43,8 +38,20 @@ endfunction
 " }}}
 
 " global test support {{{
+function s:EVLibTest_Suite_InitLow()
+	let g:evlib_test_common_global_ntests = 0
+	let g:evlib_test_common_global_npass = 0
+	let s:evlib_test_common_global_skippingtests_flag = 0
+	let g:evlib_test_common_global_groups_customresults_flag = 0 " false
+	let g:evlib_test_common_global_groups_success = !0 " true
+
+	let s:evlib_test_common_ignore_skipped_tests_completely = 0 " make non-zero to avoid reporting those as 'skipped'
+endfunction
+
+call s:EVLibTest_Suite_InitLow()
+
 function EVLibTest_Start( suite_name )
-	if s:evlib_test_common_in_group_flag || ( g:evlib_test_common_ntests > 0 )
+	if s:evlib_test_common_in_group_flag || ( g:evlib_test_common_global_ntests > 0 )
 		call EVLibTest_Finalise()
 	endif
 	" note: we could move this outside of this function, and store the result
@@ -75,11 +82,36 @@ function EVLibTest_Finalise( ... )
 	if s:evlib_test_common_in_group_flag
 		call EVLibTest_Group_End()
 	endif
-	call EVLibTest_Gen_OutputTestStats( 'Total', g:evlib_test_common_ntests, g:evlib_test_common_npass, l:src_results_user )
+
+	let l:forced_success_flag = 0
+	let l:forced_success_value = 0
+
+	let l:output_tags = []
+	if g:evlib_test_common_global_groups_customresults_flag
+		let l:forced_success_flag = !0 " true
+		" for now, only consider the custom groups results
+		"  (FIXME: this would be broken if there are stand-alone tests -- but
+		"   is it worth supporting? (maybe we should disallow such practice
+		"   ("stand-alone" tests)))
+		let l:forced_success_value = g:evlib_test_common_global_groups_success
+
+		let l:output_tags += [ 'custom.groups' ]
+		if ( ! g:evlib_test_common_global_groups_success )
+			let l:output_tags += [ 'failed.groups' ]
+		endif
+	endif
+
+	call EVLibTest_Gen_OutputTestStats(
+				\		'Total',
+				\		g:evlib_test_common_global_ntests,
+				\		g:evlib_test_common_global_npass,
+				\		l:output_tags,
+				\		l:forced_success_flag, l:forced_success_value, 
+				\		l:src_results_user
+				\	)
 	call EVLibTest_Gen_OutputLine( '' )
-	let g:evlib_test_common_ntests = 0
-	let g:evlib_test_common_npass = 0
-	let s:evlib_test_common_global_skippingtests_flag = 0
+
+	call s:EVLibTest_Suite_InitLow()
 endfunction
 
 " support for writing the results to a file {{{
@@ -128,8 +160,8 @@ function EVLibTest_Gen_GetTestStats()
 	let l:ntests_adjustment = ( s:evlib_test_common_in_test_flag ? -1 : 0 )
 	let l:result_dict = {
 			\		'global': {
-			\				'ntests': ( g:evlib_test_common_ntests + l:ntests_adjustment ),
-			\				'npass': g:evlib_test_common_npass,
+			\				'ntests': ( g:evlib_test_common_global_ntests + l:ntests_adjustment ),
+			\				'npass': g:evlib_test_common_global_npass,
 			\			},
 			\		'group': {
 			\				'active': s:evlib_test_common_in_group_flag,
@@ -197,12 +229,16 @@ endfunction
 "  * if empty( src_results_user ), we do not check results;
 "  * if !empty( src_results_user ), we will check results via
 "    EVLibTest_Gen_CheckTestStats()
-function EVLibTest_Gen_OutputTestStats( msg, ntests, npass, src_results_user )
+function EVLibTest_Gen_OutputTestStats( msg, ntests, npass, output_tags_list, forced_success_flag, forced_success_value, src_results_user )
 	let l:flag_hasuserresults = ( ! empty( a:src_results_user ) )
 
+	let l:success_final = ( ( ! a:forced_success_flag ) || ( a:forced_success_value ) )
+
+	let l:msg_passrate = ''
+	let l:results_checked_flag = !0 " true
 	if l:flag_hasuserresults
 		let l:results_success = EVLibTest_Gen_CheckTestStats( a:src_results_user )
-	else
+	elseif ( ! a:forced_success_flag )
 		let l:results_success = ( a:ntests == a:npass )
 		" vim 7.0 does not have str2float() (or float support, for that matter)
 		let l:pass_rate_strnum = ( a:npass * 10000 ) / ( a:ntests ? a:ntests : 1 )
@@ -210,21 +246,46 @@ function EVLibTest_Gen_OutputTestStats( msg, ntests, npass, src_results_user )
 		if ( strlen( l:pass_rate_strnum ) < 3 )
 			let l:pass_rate_strnum = repeat( '0', 3 - strlen( l:pass_rate_strnum ) ) . l:pass_rate_strnum
 		endif
-		let l:pass_rate_msg = 'rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%'
+		let l:msg_passrate = 'rate: ' . l:pass_rate_strnum[ -5:-3 ] . '.' . l:pass_rate_strnum[ -2: ] . '%'
+	else
+		" handled case -> we haven't updated l:results_success
+		let l:results_checked_flag = 0 " false
+		let l:results_success = !0 " true (null element for '&&')
 	endif
+	let l:success_final = l:success_final && l:results_success
+
+	" output_tags_list handling {{{
+	let l:output_tags_list = copy( a:output_tags_list )
+	let l:output_tags_list += ( l:flag_hasuserresults ? [ 'custom.results' ] : [] )
+	if l:results_checked_flag && ( ! l:results_success )
+		let l:output_tags_list += [ 'failed.results' ]
+	endif
+	" the last tag is the overall result
+	let l:output_tags_list += [ ( l:success_final ? 'pass' : 'FAIL' ) ]
+	" set l:msg_tags from l:output_tags_list {{{
+	let l:msg_tags = ''
+	for l:output_tag_now in l:output_tags_list
+		if ( ! empty( l:output_tag_now ) )
+			let l:msg_tags .= ' [' . l:output_tag_now . ']'
+		endif
+	endfor
+	" }}}
+	" }}}
 
 	call EVLibTest_Gen_OutputLine(
 			\		'RESULTS (' . a:msg . '): ' .
 			\		'tests: ' . string( a:ntests ) .
 			\		', pass: ' . string( a:npass ) .
 			\		' --' .
-			\		( 	l:flag_hasuserresults
-			\			?	' [custom]'
-			\			:	' ' . l:pass_rate_msg
+			\		( 	( ! empty( l:msg_passrate ) )
+			\			?	' ' . l:msg_passrate
+			\			:	''
 			\		) .
-			\		' [' . ( l:results_success ? 'pass' : 'FAIL' ) . ']' .
+			\		l:msg_tags .
 			\		''
 			\	)
+
+	return l:results_success
 endfunction
 " }}}
 
@@ -260,8 +321,20 @@ function EVLibTest_Group_End( ... )
 
 	if s:evlib_test_common_in_group_flag
 		" report group results
-		call EVLibTest_Gen_OutputTestStats( 'group total', g:evlib_test_common_group_ntests, g:evlib_test_common_group_npass, l:src_results_user )
+		let l:results_success = EVLibTest_Gen_OutputTestStats(
+					\		'group total',
+					\		g:evlib_test_common_group_ntests,
+					\		g:evlib_test_common_group_npass,
+					\		[],
+					\		0, 0,
+					\		l:src_results_user
+					\	)
 		call EVLibTest_Gen_OutputLine( '' )
+		" update some global control variables
+		if ( ! empty( l:src_results_user ) )
+			let g:evlib_test_common_global_groups_customresults_flag = !0 " true
+		endif
+		let g:evlib_test_common_global_groups_success = g:evlib_test_common_global_groups_success && l:results_success
 	endif
 	let s:evlib_test_common_in_group_flag = 0
 
@@ -287,7 +360,7 @@ function EVLibTest_Test_Begin( test_msg )
 	if s:evlib_test_common_in_test_flag
 		call EVLibTest_Test_EndUncertain()
 	endif
-	let g:evlib_test_common_ntests += 1
+	let g:evlib_test_common_global_ntests += 1
 	if s:evlib_test_common_in_group_flag
 		let g:evlib_test_common_group_ntests += 1
 	endif
@@ -360,7 +433,7 @@ function EVLibTest_Test_Result( rc, ... )
 	call EVLibTest_Test_EndCommon( l:result_as_string )
 	if l:result_test_executed
 		if l:result_is_pass
-			let g:evlib_test_common_npass += 1
+			let g:evlib_test_common_global_npass += 1
 			if s:evlib_test_common_in_group_flag
 				let g:evlib_test_common_group_npass += 1
 			endif
