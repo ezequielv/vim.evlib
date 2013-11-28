@@ -42,6 +42,11 @@ other options:
     no spaces, backslashes, etc.)
     TODO: implement
 
+-F OUTPUTFILE
+    write vim output to OUTPUTFILE (and leave it in
+    the filesystem after this script has finished)
+    instead of a temporary file
+
 -D
     debug this script (not everything is shown)
 
@@ -63,11 +68,12 @@ g_reportmode_default="all"
 unset g_cmd_vim
 unset g_opermode
 unset g_reportmode
+unset g_file_vimoutput
 unset g_temp_file_vimoutput
 # }}}
 
 # getopts {{{
-while getopts 'facoqp:Dh' arg
+while getopts 'facoqp:F:Dh' arg
 do
 	case $arg in
 		f)	g_opermode="filter" ;;
@@ -76,6 +82,7 @@ do
 		o)	g_reportmode="optimised" ;;
 		q)	g_reportmode="summary" ;;
 		p)	g_cmd_vim="$OPTARG" ;;
+		F)	g_file_vimoutput="$OPTARG" ;;
 		D)	g_debug=1 ;;
 		h)	f_help 0 ;;
 		?)	f_help 1 1>&2 ;;
@@ -429,7 +436,10 @@ f_getresults()
 				f_help 1
 			fi
 
-			g_temp_file_vimoutput=`mktemp`
+			if [ -z "${g_file_vimoutput}" ] ; then
+				g_temp_file_vimoutput=`mktemp`
+				g_file_vimoutput="${g_temp_file_vimoutput}"
+			fi
 
 			for l_getresults_file_now in "$@"
 			do
@@ -440,7 +450,7 @@ f_getresults()
 				# NOTE: I've added the redirection of '2>' so that
 				#  the standard messages (':echo', ':echomsg', etc.) would not
 				#  be output to the stdout/stderr of this script
-				env EVLIB_VIM_TEST_OUTPUTFILE="${g_temp_file_vimoutput}" \
+				env EVLIB_VIM_TEST_OUTPUTFILE="${g_file_vimoutput}" \
 					${g_cmd_vim} \
 							-e \
 							--noplugin \
@@ -450,7 +460,7 @@ f_getresults()
 							2> /dev/null \
 						|| true
 			done
-			[ -r "${g_temp_file_vimoutput}" ] && cat "${g_temp_file_vimoutput}"
+			[ -r "${g_file_vimoutput}" ] && cat "${g_file_vimoutput}"
 			;;
 
 		filter)
