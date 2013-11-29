@@ -278,42 +278,6 @@ function! EVLibTest_RunUtil_TestOutput_Process()
 	execute 'syntax region evtResultsAll start=/' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_results_pref ) . s:regex_results_mid_any . s:regex_results_suff . '\s*' . '/ end=/$/ contains=@evtTagMidAll,@evtTagLastAll,@evtResultResultDataAll,@evtResultHeaderAll oneline keepend'
 
 	" syntax_highlighting {{{
-	if 0
-		" TODO: remove from final code? {{{
-		highlight clear
-		for l:highlight_group_now in [
-					\		'evtSuiteBegin',
-					\		'evtGroupBegin',
-					\		'evtResultHeaderSuite',
-					\		'evtResultHeaderGroup',
-					\		'evtResultResultDataDetail',
-					\		'evtResultResultDataSummary',
-					\		'evtResultResultDataAll',
-					\		'evtResultsAll',
-					\		'evtTagLastAny',
-					\		'evtTagLastPass',
-					\		'evtTagLastSkipped',
-					\	]
-			execute 'highlight clear ' . l:highlight_group_now
-			execute 'highlight link ' . l:highlight_group_now . ' NONE'
-		endfor
-		" }}}
-
-		" note: old code: highlight default ...
-		highlight link evtSuiteBegin Identifier
-		highlight link evtResultHeaderSuite Identifier
-
-		highlight link evtGroupBegin Function
-		highlight link evtResultHeaderGroup Function
-
-		highlight link evtResultResultDataDetail Statement
-		highlight link evtResultResultDataSummary Statement
-
-		highlight link evtTagLastAny Todo
-		highlight link evtTagLastPass String
-		highlight link evtTagLastSkipped Comment
-	else
-
 	" calculate which keys (from the ones available below)
 	"  we are going to use
 
@@ -501,8 +465,6 @@ function! EVLibTest_RunUtil_TestOutput_Process()
 			execute 'highlight ' . l:highlight_colordict_sentence_now
 		endif
 	endfor
-
-	endif
 	" }}}
 
 	for l:map_elem_now in [
