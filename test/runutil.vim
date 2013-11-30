@@ -496,6 +496,244 @@ function! EVLibTest_RunUtil_TestOutput_Process()
 	" [debug] echo "done"
 endfunction
 
+function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
+	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\" )' ), ' ' )
+endfunction
+
+function! EVLibTest_RunUtil_Command_RunTests( ... )
+	let l:process_flag = !0 " true
+	let l:do_help_flag = 0 " false
+
+	" process command (function) options (arguments) {{{
+	if l:process_flag
+		let l:test_files = []
+		let l:programs_list = []
+		let l:options_definitions = [
+				\		[	[ '?', '-?' ], 0,
+				\				[ 'display help' ]
+				\		],
+				\		[	[ '-p', '--program', '--programs' ], 1,
+				\				[	'PROGRAMS',
+				\					[
+				\						'specify a list (comma-separated) of programs to run the tests',
+				\					]
+				\				]
+				\		],
+				\	]
+		let l:options_def_cached = { }
+		let l:help_message_options_list = []
+		for l:options_def_elem_index_now in range( 0, len( l:options_definitions ) - 1 )
+			let l:options_def_elem_now = l:options_definitions[ l:options_def_elem_index_now ]
+			let l:options_def_elem_mainoption = ''
+			let l:options_def_elem_flagvalue = l:options_def_elem_now[ 1 ]
+			let l:options_def_elem_help_list = l:options_def_elem_now[ 2 ]
+			let l:options_def_elem_help_use_flag = ( ! empty( l:options_def_elem_help_list ) )
+			for l:options_def_elem_inner_now in l:options_def_elem_now[ 0 ]
+				if empty( l:options_def_elem_mainoption )
+					let l:options_def_elem_mainoption = l:options_def_elem_inner_now
+				endif
+				let l:options_def_cached[ l:options_def_elem_inner_now ] = {
+						\		'mainoption': l:options_def_elem_mainoption,
+						\		'arrayindex': l:options_def_elem_index_now,
+						\		'hasvalue': l:options_def_elem_flagvalue,
+						\		'helplist': l:options_def_elem_help_list
+						\	}
+				let l:options_def_elem_inner_help_option_now = l:options_def_elem_inner_now
+				if l:options_def_elem_flagvalue
+					let l:options_def_elem_inner_help_option_now .= ' ' . l:options_def_elem_help_list[ 0 ]
+				endif
+				if l:options_def_elem_help_use_flag
+					let l:help_message_options_list += [ l:options_def_elem_inner_help_option_now ]
+				endif
+			endfor
+			if l:options_def_elem_help_use_flag
+				unlet! l:options_def_elem_help_list_lines
+				let l:options_def_elem_help_list_lines = l:options_def_elem_help_list[ -1 ]
+				" TODO: see if we actually need the copy() call, as the list
+				"  addition might result in a separate list object -> no need
+				"  to copy that
+				let l:help_message_options_list += 
+						\	map(
+						\			copy( ( ( type( l:options_def_elem_help_list_lines ) == type( '' ) ) ? [ l:options_def_elem_help_list_lines ] : l:options_def_elem_help_list_lines ) + [ '' ] ),
+						\			'"   " . v:val'
+						\		)
+			endif
+		endfor
+	endif
+	if l:process_flag && ( a:0 == 0 )
+		let l:do_help_flag = !0 " true
+		let l:process_flag = 0 " false
+	endif
+	if l:process_flag
+		let l:arg_is_option_flag = 0 " false
+		let l:option_hasvalue_next = 0 " false
+		for l:arg_now in a:000
+			" standard option processing {{{
+			if ( l:option_hasvalue_next )
+				let l:arg_is_option_flag = !0 " true
+				let l:option_hasvalue_next = 0 " false
+			elseif ( has_key( l:options_def_cached, l:arg_now ) )
+				let l:arg_is_option_flag = !0 " true
+				let l:options_def_cached_now = l:options_def_cached[ l:arg_now ]
+				let l:option_main_now = l:options_def_cached_now[ 'mainoption' ]
+				let l:option_hasvalue_next = ( l:options_def_cached_now[ 'hasvalue' ] )
+				if l:option_hasvalue_next
+					" process next option (hopefully the value)
+					continue
+				endif
+			else
+				let l:arg_is_option_flag = 0 " false
+				let l:option_hasvalue_next = 0 " false
+			endif
+			" }}}
+
+			if l:arg_is_option_flag
+				if	( l:option_main_now == '?' )
+					let l:do_help_flag = !0 " true
+					let l:process_flag = 0 " false
+					break
+				elseif	( l:option_main_now == '-p' )
+					let l:programs_list += split( l:arg_now, ',', 0 )
+				endif
+			else
+				" treat it as a file (we could do further validation here)
+				let l:test_files += sort( split( glob( l:arg_now ), '\n', 0 ) )
+			endif
+		endfor
+	endif
+	" default values {{{
+	if l:process_flag
+		if ( empty( l:programs_list ) )
+			let l:programs_list = [ v:progname ]
+		endif
+	endif
+	if l:do_help_flag
+		for l:help_line_now in [
+				\		'EVTestRunFiles [options] TESTFILES...',
+				\		'',
+				\		'runs unit tests in TESTFILES, and produces a report with the results',
+				\		'',
+				\		'options:',
+				\		'',
+				\	]
+				\	+ l:help_message_options_list
+				\	+ [
+				\	]
+			" note: this is needed in ':echo', apparently, so that empty
+			"  expressions are not skipped (we want the empty lines)
+			echo ( ( ! empty( l:help_line_now ) ) ? l:help_line_now : ' ' )
+		endfor
+		" no_need_now: return 0
+	endif
+	" }}}
+	" }}}
+
+	" pre-test run initialisations {{{
+	" FIXME: load variables for: editor executable, parameters, etc.
+	" }}}
+	" run tests, process output {{{
+	if l:process_flag
+		let l:test_output_file = ''
+		try
+			let l:test_output_init_flag = 0 " false
+			" run all tests for each (vim) program {{{
+			for l:program_now in l:programs_list
+				" one-time initialisations {{{
+				if ( ! l:test_output_init_flag )
+					" create a temporary file
+					let l:test_output_file = tempname()
+					let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
+					let l:test_output_init_flag = !0 " true
+				endif
+
+				" per-program initialisation {{{
+				" FIXME: start the program directly, not through 'env'
+				"  FIXME: add support for specifying a variable *before* our vimrc gets
+				"   loaded
+				"  FIXME: maybe load it through something else (not '-u'): '-c "let VAR | source TESTFILE"'
+				let l:progoptions_pref_list = [
+						\		'env',
+						\		'EVLIB_VIM_TEST_OUTPUTFILE=' . l:test_output_file,
+						\		l:program_now, '-f',
+						\		'-e',
+						\		'--noplugin',
+						\		'-U', 'NONE',
+						\		'-u',
+						\	]
+				" NOTE: option for specifying script to run: '-u "${l_getresults_file_now}"'
+				" NOTE: executing vim/gvim uses stdout/stderr, and it can
+				"  be quite slow (especially under the GUI)
+				"  FIXME: do this per-platform, etc.
+				"  FIXME: these redirections made vim pop up a message box
+				"   (even more disruptive)
+				"-?		\		'>' , '/dev/null',
+				"-?		\		'2>' , '/dev/null',
+				let l:progoptions_suff_list = [
+						\		'+q',
+						\	]
+				let l:progoptions_pref_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_pref_list )
+				let l:progoptions_suff_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_suff_list )
+				" }}}
+
+				" }}}
+				" run all tests {{{
+				for l:test_file_now in l:test_files
+					" validate current file {{{
+					if ( ! filereadable( l:test_file_now ) )
+						" FIXME: report the error in l:test_output_file in a way that
+						"  will be picked up by EVLibTest_RunUtil_TestOutput_Process()
+
+						" do not process this file
+						continue
+					endif
+					" }}}
+					" run vim with the right parameters {{{
+					try
+						execute '! '
+								\	.	l:progoptions_pref_string
+								\	.	' '
+								\	.	s:EVLibTest_RunUtil_Util_JoinCmdArgs( [ l:test_file_now ] )
+								\	.	' '
+								\	.	l:progoptions_suff_string
+						execute '! ls -l ' . l:test_output_file
+					catch " all exceptions
+						" FIXME: record an error string if the test failed (do it in a way
+						"  that will be shown to the user appropriately
+					endtry
+					" }}}
+				endfor
+				" }}}
+			endfor
+			" }}}
+			" process the temporary file {{{
+			if filereadable( l:test_output_file )
+				" split/create tab, set new buffer attributes
+				execute 'tab sview ' . l:test_output_file
+				setlocal buftype=nofile noswapfile
+				" done: make this better (or use a timestamp, etc.)
+				" IDEA: put all the filenames that the test had at the beginning,
+				"  for example (with one of those 'INFO:' lines?)
+				"  FIXME: and make that a folding group ("test info", etc.)
+				execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
+				call EVLibTest_RunUtil_TestOutput_Process()
+			else
+				" FIXME: report that no test output was produced?
+			endif
+			" }}}
+		finally
+			if ( ! empty( l:test_output_file ) )
+				call delete ( l:test_output_file ) " ignore rc for now
+			endif
+		endtry
+	endif
+	" }}}
+	" [debug]: echo '[debug] ' . string( l:options_def_cached )
+endfunction
+
+" define custom command(s)
+command! -bar -nargs=* -complete=file EVTestRunFiles
+			\	call EVLibTest_RunUtil_Command_RunTests(<f-args>)
+
 " boiler plate -- epilog {{{
 
 " restore old "compatibility" options {{{
