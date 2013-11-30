@@ -277,6 +277,8 @@ function evlib#rtpath#ExtendVersionedRuntimePath( path_paths_or_elements )
 
 		" process directories of the right "form" under the given
 		"  "root" directory
+		" TODO: make sure we did not mean to split at '\n' (it's using the
+		"  default (white space separator))
 		for l:paths_element_now_subdir in sort( split( glob( fnamemodify( l:paths_element_now[ 0 ], ':p' ) . '[0-9][0-9][0-9]*' ) ) )
 			if !( isdirectory( l:paths_element_now_subdir ) )
 				call s:DebugMessage( l:debug_message_prefix . '  skipping non-directory entry "' . l:paths_element_now_subdir . '"' )
