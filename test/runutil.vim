@@ -74,25 +74,32 @@ let s:regex_group_withcontent = s:regex_group_begin . '.*\]\(\(\s*$\)\|\( \[\)\)
 let s:regex_line_with_tagged_result_pref = '\(\(' . s:regex_testline_pref . '\)\|\(' . s:regex_results_pref . '\)\)'
 
 function! EVLibTest_RunUtil_TestOutput_FoldingFun( lnum )
+	if ( ! exists( 'b:evlib_test_runtest_folding_stddata_level_offset' ) )
+		" FIXME: determine this value from the presence of our custom data
+		let b:evlib_test_runtest_folding_stddata_level_offset = 0
+		let b:evlib_test_runtest_folding_suite_level = b:evlib_test_runtest_folding_stddata_level_offset + 1
+		let b:evlib_test_runtest_folding_group_level = b:evlib_test_runtest_folding_suite_level + 1
+	endif
+
 	"let l:line_prev    = s:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum - 1 )
 	let l:line_current = s:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum )
 	"let l:line_next    = s:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum + 1 )
 
 	" example: SUITE: suite #10.1: skip local/all test [custom] [{test}/vimrc_10_selftest-ex-local-pass.vim]
 	if l:line_current =~ s:regex_suite_begin
-		return '>1'
+		return '>' . b:evlib_test_runtest_folding_suite_level
 	" example: [group 1]
 	elseif l:line_current =~ s:regex_group_begin
-		return '>2'
+		return '>' . b:evlib_test_runtest_folding_group_level
 	" example:    test 1 (true) . . . . . . . . . . . . . . . . . . . . . . . [pass]
 	elseif l:line_current =~ s:regex_testline
 		return '='
 	" example: RESULTS (group total): tests: 4, pass: 1 -- rate: 25.00% [failed.results] [FAIL]
 	elseif l:line_current =~ s:regex_results_group
-		return 2
+		return b:evlib_test_runtest_folding_group_level
 	" example: RESULTS (Total): tests: 14, pass: 3 -- [custom.results] [pass]
 	elseif l:line_current =~ s:regex_results_total
-		return 1
+		return b:evlib_test_runtest_folding_suite_level
 	endif
 	return '='
 endfunction
@@ -105,23 +112,34 @@ endfunction
 "     whether to use foldtext() or use the internal implementation (which is "tweakable");
 "
 function! EVLibTest_RunUtil_TestOutput_FoldTextFun( ... )
-	let l:regex_results_now = ( ( v:foldlevel == 1 ) ? s:regex_results_total : s:regex_results_group )
+	let l:foldlevel_current = v:foldlevel
+	" NOTE: use variables defined in EVLibTest_RunUtil_TestOutput_FoldingFun()
+	if l:foldlevel_current == b:evlib_test_runtest_folding_suite_level
+		let l:regex_results_now = s:regex_results_total
+	elseif l:foldlevel_current == b:evlib_test_runtest_folding_group_level
+		let l:regex_results_now = s:regex_results_group
+	else
+		" don't do matching (use default)
+		let l:regex_results_now = ''
+	endif
 
 	let l:use_default_foldtext = ( ( a:0 > 0 ) ? a:1 : ( !0 ) )
 	let l:use_default_foldtext = l:use_default_foldtext && ( exists( '*foldtext' ) )
 
 	let l:line_fold_suffix = ''
 
-	" add the last square-bracket-enclosed expression from the results
-	"  line that matches l:regex_results_now
-	let l:lines_fold = getline( v:foldstart, v:foldend )
-	let l:line_result_index = match( l:lines_fold, l:regex_results_now )
-	if ( l:line_result_index >= 0 )
-		let l:regex_squarebrackets_last_extract = '\v^.*(\[[^\]]+\])\s*$'
-		let l:line_result = l:lines_fold[ l:line_result_index ]
-		" get the last bit in square brackets
-		if ( match( l:line_result, l:regex_squarebrackets_last_extract ) >= 0 )
-			let l:line_fold_suffix .= ' ' . substitute( l:line_result, l:regex_squarebrackets_last_extract, '\1', '' )
+	if ( ! empty( l:regex_results_now ) )
+		" add the last square-bracket-enclosed expression from the results
+		"  line that matches l:regex_results_now
+		let l:lines_fold = getline( v:foldstart, v:foldend )
+		let l:line_result_index = match( l:lines_fold, l:regex_results_now )
+		if ( l:line_result_index >= 0 )
+			let l:regex_squarebrackets_last_extract = '\v^.*(\[[^\]]+\])\s*$'
+			let l:line_result = l:lines_fold[ l:line_result_index ]
+			" get the last bit in square brackets
+			if ( match( l:line_result, l:regex_squarebrackets_last_extract ) >= 0 )
+				let l:line_fold_suffix .= ' ' . substitute( l:line_result, l:regex_squarebrackets_last_extract, '\1', '' )
+			endif
 		endif
 	endif
 
