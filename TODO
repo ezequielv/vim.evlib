@@ -179,3 +179,107 @@ tests:
 	"       function uses the global/script-local variable value to see when
 	"       to throw. the value could be one of: [ '', 'pre', 'post', 'all' ];
 
+run tests from vim:
+
+	" TODO: implement new architecture for running tests.
+	"  * there is a 'runtest.vim' (it already exists) that is responsible
+	"     for running tests (implement ':EVTestRunFiles',
+	"     'EVLibTest_RunUtil_Command_RunTests()');
+	"
+	"  * the tests to be run *can* have a vim script associated to them
+	"     (directory-based (subdir of the tests, or a file in the same dir
+	"     with a formatted name, etc.)) which would be called for processing
+	"     the results that the scripts in that directory would produce.
+	"
+	"   * so, for example, if there is a test 'vimrc_01_mytest.vim', there
+	"      could be a file 'evtest/procout-1-0-0.vim' which could define
+	"      whatever needs to be defined for processing this test's output;
+	"
+	"   * these 'procout-{version}.vim' files are versioned:
+	"
+	"    * matching major versions should process output from all previous
+	"       minor versions ('1-0-3' processes output produced by '1-0-0' to
+	"       '1-0-3' inclusive);
+	"
+	"    * these files define functions and variables for the *active buffer*,
+	"       which is the test output;
+	"
+	"     * they are allowed global interactions with other versions of this
+	"        script, but the interface should be as narrow as possible:
+	"
+	"      * for the moment, I can only think of the global:
+	"
+	"       * g:evlib_test_runtest_id
+	"
+	"     * obvious candidates for this are the 'foldexpr' function and the
+	"        'foldtext' one;
+	"
+	"     * should we run (':source') these files in a sandbox or have some
+	"        way of containing what they can do to the currently running vim
+	"        instance?
+	"
+	"  * when the user specifies test files to be "run", these files could be
+	"     located in different "tree" directories (belonging to different vim
+	"     plugins/"packages"), for example, each with a different "testing
+	"     framework" (evlib) snapshot, and it's possible that they're not all
+	"     compatible (different "major" test output format versions).
+	"
+	"   * IDEA: to solve this, we can't expect the output of each group of
+	"      tests to be given in a consistent format, and so we can either:
+	"
+	"    1. reject the running of the tests, possible reporting to the user
+	"        which groups were recognised, and which formats they claim to
+	"        produce the output in;
+	"
+	"    2. run the tests in groups, so that the command behaves as if the
+	"        user had done the splitting him/herself (more than one internal
+	"        invocation);
+	"
+	"      we should probably go for option #2, as it's the least disruptive,
+	"      and probably what the user would want us to do in the first place.
+	"
+	"  * if none of the test files have a 'procout-{version}.vim' file, the
+	"     framework should provide its own implementation (which, of course,
+	"     will be the "latest and greatest" for each of the major versions),
+	"     plus a means for detecting the format;
+	"
+	"  * the framework should also have support for wrapping the running of
+	"     each test file, so that ':source' errors can be caught from within
+	"     vim and reported from within vim appropriately;
+	"
+	"   * conceptually, having a vim script at several points in the test
+	"      loading process is probably the "cleanest" mechanism:
+	"
+	"       runutil.vim ->
+	"        vim -c 'source {runnerdir}/runner_loader.vim' ->
+	"         '{testdir}/test_loader.vim' (optional) ->
+	"          '{testdir}/{test_file.vim}'
+	"
+	"      this way, we can have our "runner"-local output producing and
+	"      error-catching script, then have "test directory"-local equivalents
+	"      (the latter will be tied to the test file testing framework
+	"      implementation, which could be newer or older than the one running
+	"      the tests);
+	"
+	"    * be careful with the following:
+	"
+	"     * output format: just because we have 'runner_loader.vim' in the
+	"        script chain, it does not mean that this script should produce
+	"        output in a way that could collide with the output produced by
+	"        the individual test(s), for which it should not attempt to
+	"        "guess" the format (as it could be newer than the newest version
+	"        supported by the framework to which 'runner_loader.vim' belongs);
+	"
+	"      * we can possibly detect error messages produced by
+	"         'runner_loader.vim' in a future-proof way (so that this format
+	"         should not be changed from version '1-0-0', or at least define
+	"         the format so that future extensions can be correctly parsed by
+	"         *all* 'procout-{version}.vim' released scripts);
+	"
+	"     * redirection: we could leave redirection to 'runner_loader.vim', at
+	"        least conceptually -- so all the '{test_file}.vim' (and the
+	"        scripts they ':source', like 'test/common.vim') should attempt to
+	"        detect active redirections -- and leave them undisturbed if they
+	"        have already been set up;
+	"
+
