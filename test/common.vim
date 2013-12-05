@@ -116,44 +116,7 @@ function EVLibTest_Finalise( ... )
 	call s:EVLibTest_Suite_InitLow()
 endfunction
 
-" support for writing the results to a file {{{
-let s:evlib_test_common_global_outputtofile_flag = 0
-
-function EVLibTest_Gen_IsRedirectingToAFile()
-	return ( s:evlib_test_common_global_outputtofile_flag != 0 )
-endfunction
-
-function s:EVLibTest_Init_TestOutput()
-	for l:var_now in [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
-		if exists( l:var_now )
-			let l:file_escaped = expand( l:var_now )
-			if exists( '*fnameescape' )
-				let l:file_escaped = fnameescape( l:file_escaped )
-			endif
-			" NOTE: alternative, use option 'verbosefile' instead
-			"  (see ":h 'verbosefile'")
-			execute 'redir >> ' . l:file_escaped
-			let s:evlib_test_common_global_outputtofile_flag = 1
-			" all done, stop trying
-			break
-		endif
-	endfor
-	" TODO: add an event handler before vim exits, to close the redirection
-endfunction
-call s:EVLibTest_Init_TestOutput()
-" }}}
-
-let s:evlib_test_common_output_lineprefix_string = 'TEST: '
-function EVLibTest_Gen_OutputLine( msg )
-	" fix: when redirecting to a file, make sure that we start each message on
-	"  a new line (error messages sometimes have a '<CR>' at the end, which
-	"  means that the next line will start at column > 1
-	if EVLibTest_Gen_IsRedirectingToAFile()
-		silent echomsg ' '
-	endif
-	execute ( EVLibTest_Gen_IsRedirectingToAFile() ? 'silent ' : '' )
-		\	. 'echomsg s:evlib_test_common_output_lineprefix_string . a:msg'
-endfunction
+call EVLibTest_TestOutput_InitAndOpen()
 
 function EVLibTest_Gen_InfoMsg( msg )
 	return EVLibTest_Gen_OutputLine( 'info: ' . a:msg )
@@ -392,7 +355,7 @@ function EVLibTest_Test_EndCommon( msg_result )
 			let l:message_end_result = repeat( ' ', l:message_end_padding_len ) . l:message_end_result
 		endif
 
-		let l:message_unpadded_len = strlen( s:evlib_test_common_output_lineprefix_string ) + strlen( l:message_start ) + strlen( l:message_end_result )
+		let l:message_unpadded_len = strlen( EVLibTest_TestOutput_GetFormattedLinePrefix() ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
 		let l:columns = ( EVLibTest_Gen_IsRedirectingToAFile() ? 76 : min( [ &columns, 100 ] ) ) - 1
 		if ( l:message_unpadded_len < l:columns )
