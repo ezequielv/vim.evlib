@@ -178,6 +178,31 @@ tests:
 	"    * where {which_user_script} is one from [ 'pre', 'post' ], and the
 	"       function uses the global/script-local variable value to see when
 	"       to throw. the value could be one of: [ '', 'pre', 'post', 'all' ];
+	"
+	" TODO: refactor test/common.vim into two:
+	"  * existing file (test/common.vim);
+	"  * new file to be used from test/common.vim and test/runutil.vim
+	"     (test/common/tout.vim, or test/commtout.vim):
+	"     * MAYBE: protocol:
+	"      * set a variable (say, g:evlib_test_common_testout_cmd) to
+	"        'load';
+	"       * implementation detail: we would save the value of existing
+	"          variables, and avoid defining functions, and save our changes
+	"          into a dictionary, for example;
+	"      * use one/many of the few global functions (say,
+	"         EVLibTest_Gen_OutputLine())
+	"      * set command variable to 'unload';
+	"       * implementation detail: we would restore the previous state from
+	"          the dictionary;
+	"   * this new file is about:
+	"    * MAYBE: being "transparent": by saving what changes to the
+	"       "includer"'s environment are made, and restoring them later, we
+	"       can make sure that we are (for the most part) "transparent" or
+	"       "neutral";
+	"    * keeping code in a single place: for now, the way to write messages
+	"       when redirecting to a file, and even the initialisation of the
+	"       redirection, will be kept in a single place -- even better in
+	"       terms of keeping "in sync" with a particular format;
 
 run tests from vim:
 

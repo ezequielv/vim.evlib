@@ -707,6 +707,8 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" }}}
 					" run vim with the right parameters {{{
 					try
+						" FIXME: execute the commands silently (':h :silent'),
+						"  and display "friendly" messages instead
 						execute '! '
 								\	.	l:progoptions_pref_string
 								\	.	' '

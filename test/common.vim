@@ -37,6 +37,8 @@ function EVLibTest_Module_Load( module )
 endfunction
 " }}}
 
+call EVLibTest_Module_Load( 'base.vim' )
+
 " global test support {{{
 function s:EVLibTest_Suite_InitLow()
 	let g:evlib_test_common_global_ntests = 0
@@ -116,6 +118,11 @@ endfunction
 
 " support for writing the results to a file {{{
 let s:evlib_test_common_global_outputtofile_flag = 0
+
+function EVLibTest_Gen_IsRedirectingToAFile()
+	return ( s:evlib_test_common_global_outputtofile_flag != 0 )
+endfunction
+
 function s:EVLibTest_Init_TestOutput()
 	for l:var_now in [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
 		if exists( l:var_now )
@@ -141,10 +148,11 @@ function EVLibTest_Gen_OutputLine( msg )
 	" fix: when redirecting to a file, make sure that we start each message on
 	"  a new line (error messages sometimes have a '<CR>' at the end, which
 	"  means that the next line will start at column > 1
-	if s:evlib_test_common_global_outputtofile_flag
-		echomsg ' '
+	if EVLibTest_Gen_IsRedirectingToAFile()
+		silent echomsg ' '
 	endif
-	echomsg s:evlib_test_common_output_lineprefix_string . a:msg
+	execute ( EVLibTest_Gen_IsRedirectingToAFile() ? 'silent ' : '' )
+		\	. 'echomsg s:evlib_test_common_output_lineprefix_string . a:msg'
 endfunction
 
 function EVLibTest_Gen_InfoMsg( msg )
@@ -386,7 +394,7 @@ function EVLibTest_Test_EndCommon( msg_result )
 
 		let l:message_unpadded_len = strlen( s:evlib_test_common_output_lineprefix_string ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
-		let l:columns = ( s:evlib_test_common_global_outputtofile_flag ? 76 : min( [ &columns, 100 ] ) ) - 1
+		let l:columns = ( EVLibTest_Gen_IsRedirectingToAFile() ? 76 : min( [ &columns, 100 ] ) ) - 1
 		if ( l:message_unpadded_len < l:columns )
 			let l:filler_len = ( l:columns - l:message_unpadded_len )
 			let l:filler_string = repeat( ' ', ( l:filler_len % l:filler_string_one_len ) ) . repeat( l:filler_string_one, ( l:filler_len / l:filler_string_one_len ) )
