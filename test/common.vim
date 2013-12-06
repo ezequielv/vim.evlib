@@ -70,8 +70,8 @@ function EVLibTest_Start( suite_name )
 		endfor
 	endif
 	" }}}
-	call EVLibTest_Gen_OutputLine( 'SUITE: ' . a:suite_name . ( empty( l:source_name ) ? '' : ' [' . l:source_name . ']' ) )
-	call EVLibTest_Gen_OutputLine( '' )
+	call EVLibTest_TestOutput_OutputLine( 'SUITE: ' . a:suite_name . ( empty( l:source_name ) ? '' : ' [' . l:source_name . ']' ) )
+	call EVLibTest_TestOutput_OutputLine( '' )
 endfunction
 
 function EVLibTest_Finalise( ... )
@@ -111,15 +111,16 @@ function EVLibTest_Finalise( ... )
 				\		l:forced_success_flag, l:forced_success_value, 
 				\		l:src_results_user
 				\	)
-	call EVLibTest_Gen_OutputLine( '' )
+	call EVLibTest_TestOutput_OutputLine( '' )
 
 	call s:EVLibTest_Suite_InitLow()
 endfunction
 
+" TODO: add an event handler before vim exits, to close the redirection
 call EVLibTest_TestOutput_InitAndOpen()
 
 function EVLibTest_Gen_InfoMsg( msg )
-	return EVLibTest_Gen_OutputLine( 'info: ' . a:msg )
+	return EVLibTest_TestOutput_OutputLine( 'info: ' . a:msg )
 endfunction
 
 function EVLibTest_Gen_InfoVarValue( varname, ... )
@@ -243,7 +244,7 @@ function EVLibTest_Gen_OutputTestStats( msg, ntests, npass, output_tags_list, fo
 	" }}}
 	" }}}
 
-	call EVLibTest_Gen_OutputLine(
+	call EVLibTest_TestOutput_OutputLine(
 			\		'RESULTS (' . a:msg . '): ' .
 			\		'tests: ' . string( a:ntests ) .
 			\		', pass: ' . string( a:npass ) .
@@ -282,7 +283,7 @@ function EVLibTest_Group_Begin( group_name )
 		return
 	endif
 
-	call EVLibTest_Gen_OutputLine( '[' . a:group_name . ']' )
+	call EVLibTest_TestOutput_OutputLine( '[' . a:group_name . ']' )
 	let s:evlib_test_common_in_group_flag = 1
 endfunction
 
@@ -300,7 +301,7 @@ function EVLibTest_Group_End( ... )
 					\		0, 0,
 					\		l:src_results_user
 					\	)
-		call EVLibTest_Gen_OutputLine( '' )
+		call EVLibTest_TestOutput_OutputLine( '' )
 		" update some global control variables
 		if ( ! empty( l:src_results_user ) )
 			let g:evlib_test_common_global_groups_customresults_flag = !0 " true
@@ -342,7 +343,7 @@ endfunction
 " does variable cleanup, etc.
 function EVLibTest_Test_EndCommon( msg_result )
 	if s:evlib_test_common_in_test_flag
-		" prev: call EVLibTest_Gen_OutputLine( ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ': [' . a:msg_result . ']' )
+		" prev: call EVLibTest_TestOutput_OutputLine( ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ': [' . a:msg_result . ']' )
 		let l:message_start = ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ' '
 		let l:message_end_result = '[' . a:msg_result . ']'
 
@@ -357,14 +358,14 @@ function EVLibTest_Test_EndCommon( msg_result )
 
 		let l:message_unpadded_len = strlen( EVLibTest_TestOutput_GetFormattedLinePrefix() ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
-		let l:columns = ( EVLibTest_Gen_IsRedirectingToAFile() ? 76 : min( [ &columns, 100 ] ) ) - 1
+		let l:columns = ( EVLibTest_TestOutput_IsRedirectingToAFile() ? 76 : min( [ &columns, 100 ] ) ) - 1
 		if ( l:message_unpadded_len < l:columns )
 			let l:filler_len = ( l:columns - l:message_unpadded_len )
 			let l:filler_string = repeat( ' ', ( l:filler_len % l:filler_string_one_len ) ) . repeat( l:filler_string_one, ( l:filler_len / l:filler_string_one_len ) )
 		else
 			let l:filler_string = ''
 		endif
-		call EVLibTest_Gen_OutputLine( l:message_start . l:filler_string . l:message_end_result )
+		call EVLibTest_TestOutput_OutputLine( l:message_start . l:filler_string . l:message_end_result )
 	endif
 	let s:evlib_test_common_in_test_flag = 0
 endfunction

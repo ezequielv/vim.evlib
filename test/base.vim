@@ -25,35 +25,85 @@ set cpo&vim
 
 " support for writing the results to a file {{{
 let s:evlib_test_common_global_outputtofile_flag = 0
+let s:evlib_test_common_global_outputtofile_lastfile_escaped = ''
 
-function EVLibTest_Gen_IsRedirectingToAFile()
+function EVLibTest_TestOutput_IsRedirectingToAFile()
 	return ( s:evlib_test_common_global_outputtofile_flag != 0 )
 endfunction
 
-" FIXME: make sure that the renamed function has an "end" function:
-"   FIXME: make function also take filename(s) from vim variable (in addition
-"    to environment variable)
-"  EVLibTest_TestOutput_Reopen()
-"  EVLibTest_TestOutput_Close()
-"
+function s:EVLibTest_TestOutput_Do_Redir( file_escaped )
+	let l:success = !0 " true
+
+	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && ( ! empty( a:file_escaped ) )
+
+	if l:success
+		" NOTE: alternative, use option 'verbosefile' instead
+		"  (see ":h 'verbosefile'")
+		execute 'redir >> ' . a:file_escaped
+		let s:evlib_test_common_global_outputtofile_flag = 1
+	endif
+	return l:success
+endfunction
+
 " MAYBE: add (optional?) parameter: do_open_flag
 function EVLibTest_TestOutput_InitAndOpen()
-	for l:var_now in [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
-		if exists( l:var_now )
-			let l:file_escaped = expand( l:var_now )
-			if exists( '*fnameescape' )
-				let l:file_escaped = fnameescape( l:file_escaped )
+	let l:success = !0 " true
+
+	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
+
+	if l:success
+		" FIXME: make function also take filename(s) from vim variable (in
+		"  addition to environment variable)
+		for l:var_now in [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
+			if l:success && exists( l:var_now )
+				let l:file_escaped = expand( l:var_now )
+				if ( empty( l:file_escaped ) )
+					" skip an empty filename (however it's got here)
+					continue
+				endif
+				if exists( '*fnameescape' )
+					let l:file_escaped = fnameescape( l:file_escaped )
+				endif
+				let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped )
+				if l:success
+					let s:evlib_test_common_global_outputtofile_lastfile_escaped = l:file_escaped
+					" all done, stop trying
+					break
+				endif
 			endif
-			" NOTE: alternative, use option 'verbosefile' instead
-			"  (see ":h 'verbosefile'")
-			execute 'redir >> ' . l:file_escaped
-			let s:evlib_test_common_global_outputtofile_flag = 1
-			" all done, stop trying
-			break
-		endif
-	endfor
-	" TODO: add an event handler before vim exits, to close the redirection
+			if ( ! l:success ) | break | endif
+		endfor
+	endif
+
+	return l:success
 endfunction
+
+function EVLibTest_TestOutput_Reopen()
+	let l:success = !0 " true
+
+	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && exists( 's:evlib_test_common_global_outputtofile_lastfile_escaped' ) && ( ! empty( s:evlib_test_common_global_outputtofile_lastfile_escaped ) )
+
+	" do it {{{
+	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_common_global_outputtofile_lastfile_escaped )
+	" }}}
+
+	return l:success
+endfunction
+
+function EVLibTest_TestOutput_Close()
+	let l:success = !0 " success
+
+	let l:success = l:success && EVLibTest_TestOutput_IsRedirectingToAFile()
+	if l:success
+		" end redirection (see ':h :redir')
+		redir END
+		let s:evlib_test_common_global_outputtofile_flag = 0
+	endif
+	return l:success
+endfunction
+
 " }}}
 
 " MAYBE: move function 'EVLibTest_Module_Load( module )' here
@@ -72,14 +122,14 @@ function EVLibTest_TestOutput_GetFormattedLinePrefix()
 	return s:evlib_test_common_output_lineprefix_string
 endfunction
 
-function EVLibTest_Gen_OutputLine( msg )
+function EVLibTest_TestOutput_OutputLine( msg )
 	" fix: when redirecting to a file, make sure that we start each message on
 	"  a new line (error messages sometimes have a '<CR>' at the end, which
 	"  means that the next line will start at column > 1
-	if EVLibTest_Gen_IsRedirectingToAFile()
+	if EVLibTest_TestOutput_IsRedirectingToAFile()
 		silent echomsg ' '
 	endif
-	execute ( EVLibTest_Gen_IsRedirectingToAFile() ? 'silent ' : '' )
+	execute ( EVLibTest_TestOutput_IsRedirectingToAFile() ? 'silent ' : '' )
 		\	. 'echomsg s:evlib_test_common_output_lineprefix_string . a:msg'
 endfunction
 

@@ -190,7 +190,7 @@ tests:
 	"          variables, and avoid defining functions, and save our changes
 	"          into a dictionary, for example;
 	"      * use one/many of the few global functions (say,
-	"         EVLibTest_Gen_OutputLine())
+	"         EVLibTest_TestOutput_OutputLine())
 	"      * set command variable to 'unload';
 	"       * implementation detail: we would restore the previous state from
 	"          the dictionary;

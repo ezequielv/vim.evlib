@@ -13,7 +13,7 @@ execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_commo
 "  (see ':h v:version', and 'has("patch123")')
 if !( ( v:version >= 700 ) )
 	call EVLibTest_Gen_InfoMsg( 'test file: ' . string( fnamemodify( g:evlib_test_common_main_source_file, ':p:t' ) ) . ' requires "vundle", but it is not supported by the vim instance being run' )
-	call EVLibTest_Gen_OutputLine( '' )
+	call EVLibTest_TestOutput_OutputLine( '' )
 	finish
 endif
 " }}}
