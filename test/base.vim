@@ -23,15 +23,31 @@ set cpo&vim
 
 " FIXME: rename all variables: s:evlib_test_common_* -> s:evlib_test_base_*
 
+" variables and functions {{{
+" general variables {{{
+let g:evlib_test_common_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
+let g:evlib_test_common_rootdir = fnamemodify( g:evlib_test_common_testdir, ':h' )
+let g:evlib_test_common_test_testtrees_rootdir = g:evlib_test_common_testdir . '/test_trees'
+" }}}
+
+" test framework modules {{{
+function! EVLibTest_Module_Load( module )
+	let l:filepath = g:evlib_test_common_testdir . '/' . a:module
+	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : l:filepath )
+	return !0 " true
+endfunction
+" }}}
+" }}}
+
 " support for writing the results to a file {{{
 let s:evlib_test_common_global_outputtofile_flag = 0
 let s:evlib_test_common_global_outputtofile_lastfile_escaped = ''
 
-function EVLibTest_TestOutput_IsRedirectingToAFile()
+function! EVLibTest_TestOutput_IsRedirectingToAFile()
 	return ( s:evlib_test_common_global_outputtofile_flag != 0 )
 endfunction
 
-function s:EVLibTest_TestOutput_Do_Redir( file_escaped )
+function! s:EVLibTest_TestOutput_Do_Redir( file_escaped )
 	let l:success = !0 " true
 
 	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
@@ -46,40 +62,94 @@ function s:EVLibTest_TestOutput_Do_Redir( file_escaped )
 	return l:success
 endfunction
 
-" MAYBE: add (optional?) parameter: do_open_flag
-function EVLibTest_TestOutput_InitAndOpen()
+" args: [ redir_filename ]
+"  * redir_filename: (ignored if empty)
+"
+" returns: file name to use in redirection, if one was found
+"  (the empty string if one was not found)
+function! EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 	let l:success = !0 " true
+	let l:redir_filename = ''
+
+	if l:success
+		let l:stage = 1
+		while ( l:success ) && ( empty( l:redir_filename ) )
+			let l:stage_finished = !0 " true (by default)
+			let l:stage_is_last = 0 " false
+			let l:filename_now = ''
+
+			" note: if ( ! l:success ) the while condition will stop the loop
+			if l:success
+				if l:stage == 1
+					" process optional argument
+					let l:filename_now = ( ( a:0 > 0 ) ? ( a:1 ) : '' )
+				elseif l:stage == 2
+					let l:stage_is_last = !0 " true
+
+					if ( ! exists( 'l:variables_list' ) )
+						let l:variables_list = [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
+					endif
+					" remove the first element from the list, and store it in
+					"  l:var_now
+					" note: we know that the list is always non-empty at this point
+					let l:var_now = remove( l:variables_list, 0 )
+
+					if l:success && exists( l:var_now )
+						let l:filename_now = expand( l:var_now )
+					endif
+
+					let l:stage_finished = empty( l:variables_list )
+				endif
+			endif
+			if l:success && ( ! empty( l:filename_now ) )
+				let l:redir_filename = l:filename_now
+			endif
+
+			if l:stage_finished
+				if l:stage_is_last
+					break
+				else
+					let l:stage += 1
+				endif
+			endif
+		endwhile
+	endif
+
+	return ( l:success ? l:redir_filename : '' )
+endfunction
+
+" args: [ do_redir_now_flag, [ redir_filename ] ]
+" * do_redir_now_flag (default: TRUE);
+"
+" returns: success state
+function! EVLibTest_TestOutput_InitAndOpen( ... )
+	let l:success = !0 " true
+	let l:do_redir_now_flag = ( ( a:0 > 0 ) ? ( a:1 ) : ( !0 ) )
+	let l:redir_filename_user = ( ( a:0 > 1 ) ? ( a:2 ) : '' )
 
 	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
 
 	if l:success
-		" FIXME: make function also take filename(s) from vim variable (in
-		"  addition to environment variable)
-		for l:var_now in [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
-			if l:success && exists( l:var_now )
-				let l:file_escaped = expand( l:var_now )
-				if ( empty( l:file_escaped ) )
-					" skip an empty filename (however it's got here)
-					continue
-				endif
-				if exists( '*fnameescape' )
-					let l:file_escaped = fnameescape( l:file_escaped )
-				endif
-				let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped )
-				if l:success
-					let s:evlib_test_common_global_outputtofile_lastfile_escaped = l:file_escaped
-					" all done, stop trying
-					break
-				endif
-			endif
-			if ( ! l:success ) | break | endif
-		endfor
+		let l:file_escaped = EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_filename_user )
+	endif
+	if l:success && ( ! empty( l:file_escaped ) )
+		if exists( '*fnameescape' )
+			let l:file_escaped = fnameescape( l:file_escaped )
+		endif
+		if l:do_redir_now_flag
+			let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped )
+		endif
+		" note: purposedly writing these other (globally/script
+		"  scoped) variables
+		if l:success
+			let s:evlib_test_common_global_outputtofile_lastfile_escaped = l:file_escaped
+		endif
 	endif
 
 	return l:success
 endfunction
 
-function EVLibTest_TestOutput_Reopen()
+function! EVLibTest_TestOutput_Reopen()
 	let l:success = !0 " true
 
 	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
@@ -92,7 +162,7 @@ function EVLibTest_TestOutput_Reopen()
 	return l:success
 endfunction
 
-function EVLibTest_TestOutput_Close()
+function! EVLibTest_TestOutput_Close()
 	let l:success = !0 " success
 
 	let l:success = l:success && EVLibTest_TestOutput_IsRedirectingToAFile()
@@ -118,11 +188,11 @@ endfunction
 
 let s:evlib_test_common_output_lineprefix_string = 'TEST: '
 
-function EVLibTest_TestOutput_GetFormattedLinePrefix()
+function! EVLibTest_TestOutput_GetFormattedLinePrefix()
 	return s:evlib_test_common_output_lineprefix_string
 endfunction
 
-function EVLibTest_TestOutput_OutputLine( msg )
+function! EVLibTest_TestOutput_OutputLine( msg )
 	" fix: when redirecting to a file, make sure that we start each message on
 	"  a new line (error messages sometimes have a '<CR>' at the end, which
 	"  means that the next line will start at column > 1

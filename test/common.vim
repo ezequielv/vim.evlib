@@ -21,24 +21,11 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
+" include our 'base' script (variables, functions) {{{
+execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'base.vim'
+" }}}
+
 " variables and functions {{{
-" general variables {{{
-let g:evlib_test_common_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
-let g:evlib_test_common_rootdir = fnamemodify( g:evlib_test_common_testdir, ':h' )
-let g:evlib_test_common_test_testtrees_rootdir = g:evlib_test_common_testdir . '/test_trees'
-
-" }}}
-
-" test framework modules {{{
-function EVLibTest_Module_Load( module )
-	let l:filepath = g:evlib_test_common_testdir . '/' . a:module
-	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : l:filepath )
-	return !0 " true
-endfunction
-" }}}
-
-call EVLibTest_Module_Load( 'base.vim' )
-
 " global test support {{{
 function s:EVLibTest_Suite_InitLow()
 	let g:evlib_test_common_global_ntests = 0

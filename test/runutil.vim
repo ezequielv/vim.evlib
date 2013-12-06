@@ -21,6 +21,14 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
+" NOTE: we seem to have to use s:cpo_save to avoid vim-7.0 generating a non-existing error {{{
+silent echon '[debug] s:cpo_save: ' . string( s:cpo_save )
+" }}}
+
+" include our 'base' script (variables, functions) {{{
+execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'base.vim'
+" }}}
+
 function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 	" save previous search
 	let l:saved_register_search = @/
@@ -652,17 +660,30 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" run tests, process output {{{
 	if l:process_flag
 		let l:test_output_file = ''
+		let l:test_output_file_temp_flag = 0 " false
+		let l:test_output_redirecting_flag = 0 " false
 		try
 			let l:test_output_init_flag = 0 " false
+			let l:test_output_redir_active_flag = 0 " false
 			" run all tests for each (vim) program {{{
 			for l:program_now in l:programs_list
 				" one-time initialisations {{{
 				if ( ! l:test_output_init_flag )
-					" create a temporary file
-					let l:test_output_file = tempname()
+					let l:test_output_file = EVLibTest_TestOutput_OptionalGetRedirFilename()
+					if ( empty( l:test_output_file ) )
+						" create a temporary file
+						let l:test_output_file = tempname()
+						let l:test_output_file_temp_flag = !0 " true
+					endif
 					let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
+					if ( ! EVLibTest_TestOutput_InitAndOpen( 0 ) )
+						" FIXME: report the error in a way that would be
+						"  picked up by our caller (exception?)
+						break " FIXME: see comment above
+					endif
 					let l:test_output_init_flag = !0 " true
 				endif
+				" }}}
 
 				" per-program initialisation {{{
 				" FIXME: start the program directly, not through 'env'
@@ -693,7 +714,8 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				let l:progoptions_suff_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_suff_list )
 				" }}}
 
-				" }}}
+				" FIXME: write information about the (vim) program currently being used
+
 				" run all tests {{{
 				for l:test_file_now in l:test_files
 					" validate current file {{{
@@ -707,6 +729,10 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" }}}
 					" run vim with the right parameters {{{
 					try
+						" FIXME: write information about the test to be run here
+
+						" FIXME: stop redirection here
+
 						" FIXME: execute the commands silently (':h :silent'),
 						"  and display "friendly" messages instead
 						execute '! '
@@ -719,6 +745,8 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					catch " all exceptions
 						" FIXME: record an error string if the test failed (do it in a way
 						"  that will be shown to the user appropriately
+					finally
+						" FIXME: re-enable redirection here
 					endtry
 					" }}}
 				endfor
@@ -740,8 +768,18 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				" FIXME: report that no test output was produced?
 			endif
 			" }}}
+		" IDEA: to avoid doing the 'catch': just set a flag at the end of the
+		"  'good' code block, and detect that in the 'finally' block, below
+		" LATER catch " all exceptions
+			" FIXME: optionally enable redirection (maybe looking at
+			"  l:test_output_redirecting_flag); display error message;
+			" FIXME: re-throw the exception
 		finally
-			if ( ! empty( l:test_output_file ) )
+			if l:test_output_redirecting_flag
+				call EVLibTest_TestOutput_Close()
+				let l:test_output_redirecting_flag = 0 " false
+			endif
+			if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )
 				call delete ( l:test_output_file ) " ignore rc for now
 			endif
 		endtry
