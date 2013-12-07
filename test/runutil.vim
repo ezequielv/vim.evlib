@@ -27,7 +27,35 @@ silent echon '[debug] s:cpo_save: ' . string( s:cpo_save )
 
 " include our 'base' script (variables, functions) {{{
 execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'base.vim'
+" save object just created/returned into our own script variable
+let s:evlib_test_base_object = g:evlib_test_base_object_last
 " }}}
+
+function! s:Local_DefineFunctionFromFuncRef( fname, funcref )
+	for l:func_now in [ a:fname, 's:' . a:fname ]
+		try
+			execute 'delfunction ' . l:func_now
+		catch
+		endtry
+	endfor
+
+	execute 'unlet! ' . a:fname . ' s:' . a:fname
+	execute 'let s:' . a:fname . ' = a:funcref'
+endfunction
+
+" create mappings as if they were the real functions (see ':h Funcref') {{{
+call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_OptionalGetRedirFilename', s:evlib_test_base_object.f_testoutput_optionalgetredirfilename )
+call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_InitAndOpen', s:evlib_test_base_object.f_testoutput_initandopen )
+call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_Close', s:evlib_test_base_object.f_testoutput_close )
+" }}}
+if 1
+	echomsg '[debug] runutil.vim: >' . s:evlib_test_base_object.f_testoutput_optionalgetredirfilename() . '<'
+	echomsg '[debug] runutil.vim: >' . s:EVLibTest_TestOutput_OptionalGetRedirFilename() . '<'
+	function! s:DebugTest01()
+		echomsg '[debug] runutil.vim - s:DebugTest01(): >' . s:EVLibTest_TestOutput_OptionalGetRedirFilename() . '<'
+	endfunction
+	call s:DebugTest01()
+endif
 
 function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 	" save previous search
@@ -669,14 +697,14 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			for l:program_now in l:programs_list
 				" one-time initialisations {{{
 				if ( ! l:test_output_init_flag )
-					let l:test_output_file = EVLibTest_TestOutput_OptionalGetRedirFilename()
+					let l:test_output_file = s:EVLibTest_TestOutput_OptionalGetRedirFilename()
 					if ( empty( l:test_output_file ) )
 						" create a temporary file
 						let l:test_output_file = tempname()
 						let l:test_output_file_temp_flag = !0 " true
 					endif
 					let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
-					if ( ! EVLibTest_TestOutput_InitAndOpen( 0 ) )
+					if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
 						" FIXME: report the error in a way that would be
 						"  picked up by our caller (exception?)
 						break " FIXME: see comment above
@@ -776,7 +804,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			" FIXME: re-throw the exception
 		finally
 			if l:test_output_redirecting_flag
-				call EVLibTest_TestOutput_Close()
+				call s:EVLibTest_TestOutput_Close()
 				let l:test_output_redirecting_flag = 0 " false
 			endif
 			if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )

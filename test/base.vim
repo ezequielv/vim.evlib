@@ -5,11 +5,17 @@
 " "bare vi support" detection/forwarding
 if has("eval")
 
-" inclusion control {{{
-if exists( 'g:evlib_test_base_loaded' )
-	finish
-endif
-let g:evlib_test_base_loaded = 1
+" inclusion control -- start {{{
+" fixed: change this so that the assignment to g:evlib_test_base_object_last
+"  at the end happens, even when the module had been loaded previously
+"  (so the 'finish' should go, and we should put almost everything in this
+"  script file within an 'if')
+if ( ! exists( 's:evlib_test_base_loaded' ) ) || ( exists( 'g:evlib_test_base_forceload' ) && ( g:evlib_test_base_forceload != 0 ) )
+" prev: if exists( 's:evlib_test_base_loaded' ) && ( ! ( exists( 'g:evlib_test_base_forceload' ) && ( g:evlib_test_base_forceload != 0 ) ) )
+" prev:		finish
+" prev: endif
+let s:evlib_test_base_loaded = 1
+unlet! g:evlib_test_base_forceload
 " }}}
 
 " force "compatibility" mode {{{
@@ -21,18 +27,18 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
-" FIXME: rename all variables: s:evlib_test_common_* -> s:evlib_test_base_*
+" everything in this file will be part of: s:evlib_test_base_object
 
 " variables and functions {{{
 " general variables {{{
-let g:evlib_test_common_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
-let g:evlib_test_common_rootdir = fnamemodify( g:evlib_test_common_testdir, ':h' )
-let g:evlib_test_common_test_testtrees_rootdir = g:evlib_test_common_testdir . '/test_trees'
+let s:evlib_test_base_testdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
+let s:evlib_test_base_rootdir = fnamemodify( s:evlib_test_base_testdir, ':h' )
+let s:evlib_test_base_test_testtrees_rootdir = s:evlib_test_base_testdir . '/test_trees'
 " }}}
 
 " test framework modules {{{
-function! EVLibTest_Module_Load( module )
-	let l:filepath = g:evlib_test_common_testdir . '/' . a:module
+function! s:EVLibTest_Module_Load( module )
+	let l:filepath = s:evlib_test_base_testdir . '/' . a:module
 	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : l:filepath )
 	return !0 " true
 endfunction
@@ -40,24 +46,24 @@ endfunction
 " }}}
 
 " support for writing the results to a file {{{
-let s:evlib_test_common_global_outputtofile_flag = 0
-let s:evlib_test_common_global_outputtofile_lastfile_escaped = ''
+let s:evlib_test_base_global_outputtofile_flag = 0
+let s:evlib_test_base_global_outputtofile_lastfile_escaped = ''
 
-function! EVLibTest_TestOutput_IsRedirectingToAFile()
-	return ( s:evlib_test_common_global_outputtofile_flag != 0 )
+function! s:EVLibTest_TestOutput_IsRedirectingToAFile()
+	return ( s:evlib_test_base_global_outputtofile_flag != 0 )
 endfunction
 
 function! s:EVLibTest_TestOutput_Do_Redir( file_escaped )
 	let l:success = !0 " true
 
-	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 	let l:success = l:success && ( ! empty( a:file_escaped ) )
 
 	if l:success
 		" NOTE: alternative, use option 'verbosefile' instead
 		"  (see ":h 'verbosefile'")
 		execute 'redir >> ' . a:file_escaped
-		let s:evlib_test_common_global_outputtofile_flag = 1
+		let s:evlib_test_base_global_outputtofile_flag = 1
 	endif
 	return l:success
 endfunction
@@ -67,7 +73,7 @@ endfunction
 "
 " returns: file name to use in redirection, if one was found
 "  (the empty string if one was not found)
-function! EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
+function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 	let l:success = !0 " true
 	let l:redir_filename = ''
 
@@ -122,15 +128,15 @@ endfunction
 " * do_redir_now_flag (default: TRUE);
 "
 " returns: success state
-function! EVLibTest_TestOutput_InitAndOpen( ... )
+function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 	let l:success = !0 " true
 	let l:do_redir_now_flag = ( ( a:0 > 0 ) ? ( a:1 ) : ( !0 ) )
 	let l:redir_filename_user = ( ( a:0 > 1 ) ? ( a:2 ) : '' )
 
-	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 
 	if l:success
-		let l:file_escaped = EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_filename_user )
+		let l:file_escaped = s:EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_filename_user )
 	endif
 	if l:success && ( ! empty( l:file_escaped ) )
 		if exists( '*fnameescape' )
@@ -142,41 +148,39 @@ function! EVLibTest_TestOutput_InitAndOpen( ... )
 		" note: purposedly writing these other (globally/script
 		"  scoped) variables
 		if l:success
-			let s:evlib_test_common_global_outputtofile_lastfile_escaped = l:file_escaped
+			let s:evlib_test_base_global_outputtofile_lastfile_escaped = l:file_escaped
 		endif
 	endif
 
 	return l:success
 endfunction
 
-function! EVLibTest_TestOutput_Reopen()
+function! s:EVLibTest_TestOutput_Reopen()
 	let l:success = !0 " true
 
-	let l:success = l:success && ( ! EVLibTest_TestOutput_IsRedirectingToAFile() )
-	let l:success = l:success && exists( 's:evlib_test_common_global_outputtofile_lastfile_escaped' ) && ( ! empty( s:evlib_test_common_global_outputtofile_lastfile_escaped ) )
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && exists( 's:evlib_test_base_global_outputtofile_lastfile_escaped' ) && ( ! empty( s:evlib_test_base_global_outputtofile_lastfile_escaped ) )
 
 	" do it {{{
-	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_common_global_outputtofile_lastfile_escaped )
+	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_base_global_outputtofile_lastfile_escaped )
 	" }}}
 
 	return l:success
 endfunction
 
-function! EVLibTest_TestOutput_Close()
+function! s:EVLibTest_TestOutput_Close()
 	let l:success = !0 " success
 
-	let l:success = l:success && EVLibTest_TestOutput_IsRedirectingToAFile()
+	let l:success = l:success && s:EVLibTest_TestOutput_IsRedirectingToAFile()
 	if l:success
 		" end redirection (see ':h :redir')
 		redir END
-		let s:evlib_test_common_global_outputtofile_flag = 0
+		let s:evlib_test_base_global_outputtofile_flag = 0
 	endif
 	return l:success
 endfunction
 
 " }}}
-
-" MAYBE: move function 'EVLibTest_Module_Load( module )' here
 
 " MAYBE: make this include a "defs.vim" with just constants (useful for the
 "  'foldexpr' and 'foldtext' implementing functions)
@@ -186,30 +190,73 @@ endfunction
 
 " formatted output support {{{
 
-let s:evlib_test_common_output_lineprefix_string = 'TEST: '
+let s:evlib_test_base_output_lineprefix_string = 'TEST: '
 
-function! EVLibTest_TestOutput_GetFormattedLinePrefix()
-	return s:evlib_test_common_output_lineprefix_string
+function! s:EVLibTest_TestOutput_GetFormattedLinePrefix()
+	return s:evlib_test_base_output_lineprefix_string
 endfunction
 
-function! EVLibTest_TestOutput_OutputLine( msg )
+function! s:EVLibTest_TestOutput_OutputLine( msg )
 	" fix: when redirecting to a file, make sure that we start each message on
 	"  a new line (error messages sometimes have a '<CR>' at the end, which
 	"  means that the next line will start at column > 1
-	if EVLibTest_TestOutput_IsRedirectingToAFile()
+	if s:EVLibTest_TestOutput_IsRedirectingToAFile()
 		silent echomsg ' '
 	endif
-	execute ( EVLibTest_TestOutput_IsRedirectingToAFile() ? 'silent ' : '' )
-		\	. 'echomsg s:evlib_test_common_output_lineprefix_string . a:msg'
+	execute ( s:EVLibTest_TestOutput_IsRedirectingToAFile() ? 'silent ' : '' )
+		\	. 'echomsg s:evlib_test_base_output_lineprefix_string . a:msg'
 endfunction
 
 " }}}
 
-" boiler plate -- epilog {{{
+" everything in this file will be part of: s:evlib_test_base_object {{{
+" TODO: define the functions directly in the dictionary object, to avoid this ugly hack
+" from ':h <SID>' {{{
+function! s:SID()
+  return matchstr(expand('<sfile>'), '<SNR>\zs\d\+\ze_SID$')
+endfun
+" }}}
+let s:funpref = '<SNR>' . s:SID() . '_'
+" NOTE: values are copied (no references), so this is only a good method to
+"  expose constants ('c_' prefix)
+let s:evlib_test_base_object = {
+		\		'c_testdir':				s:evlib_test_base_testdir,
+		\		'c_rootdir':				s:evlib_test_base_rootdir,
+		\		'c_testtrees_rootdir':		s:evlib_test_base_test_testtrees_rootdir,
+		\
+		\		'f_testoutput_outputline':					function( s:funpref . 'EVLibTest_TestOutput_OutputLine' ),
+		\		'f_testoutput_getformattedlineprefix':		function( s:funpref . 'EVLibTest_TestOutput_GetFormattedLinePrefix' ),
+		\		'f_testoutput_close':						function( s:funpref . 'EVLibTest_TestOutput_Close' ),
+		\		'f_testoutput_reopen':						function( s:funpref . 'EVLibTest_TestOutput_Reopen' ),
+		\		'f_testoutput_initandopen':					function( s:funpref . 'EVLibTest_TestOutput_InitAndOpen' ),
+		\		'f_testoutput_optionalgetredirfilename':	function( s:funpref . 'EVLibTest_TestOutput_OptionalGetRedirFilename' ),
+		\		'f_testoutput_redir':						function( s:funpref . 'EVLibTest_TestOutput_Do_Redir' ),
+		\		'f_testoutput_isredirectingtoafile':		function( s:funpref . 'EVLibTest_TestOutput_IsRedirectingToAFile' ),
+		\
+		\		'f_module_load':							function( s:funpref . 'EVLibTest_Module_Load' ),
+		\	}
+" }}}
+
+" inclusion control -- end {{{
+endif " ... s:evlib_test_base_loaded ...
+" }}}
+
+" [debug] -- test
+"+ [debug] echomsg '[debug] base.vim: about to call s:evlib_test_base_object.f_testoutput_optionalgetredirfilename()'
+"+ [debug] echomsg '[debug] >' . s:evlib_test_base_object.f_testoutput_optionalgetredirfilename() . '<'
+
+" preserve the script object(s) as global {{{
+unlet! g:evlib_test_base_object_last
+let g:evlib_test_base_object_last = s:evlib_test_base_object
+" }}}
+
+" boiler plate -- epilog (customised) {{{
 
 " restore old "compatibility" options {{{
-let &cpo=s:cpo_save
-unlet s:cpo_save
+if exists( 's:cpo_save' )
+	let &cpo = s:cpo_save
+	unlet s:cpo_save
+endif
 " }}}
 
 " non-eval versions would skip over the "endif"
