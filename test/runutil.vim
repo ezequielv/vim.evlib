@@ -21,10 +21,6 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
-" NOTE: we seem to have to use s:cpo_save to avoid vim-7.0 generating a non-existing error {{{
-silent echon '[debug] s:cpo_save: ' . string( s:cpo_save )
-" }}}
-
 " include our 'base' script (variables, functions) {{{
 execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'base.vim'
 " save object just created/returned into our own script variable
@@ -48,14 +44,6 @@ call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_OptionalGetRedirFi
 call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_InitAndOpen', s:evlib_test_base_object.f_testoutput_initandopen )
 call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_Close', s:evlib_test_base_object.f_testoutput_close )
 " }}}
-if 1
-	echomsg '[debug] runutil.vim: >' . s:evlib_test_base_object.f_testoutput_optionalgetredirfilename() . '<'
-	echomsg '[debug] runutil.vim: >' . s:EVLibTest_TestOutput_OptionalGetRedirFilename() . '<'
-	function! s:DebugTest01()
-		echomsg '[debug] runutil.vim - s:DebugTest01(): >' . s:EVLibTest_TestOutput_OptionalGetRedirFilename() . '<'
-	endfunction
-	call s:DebugTest01()
-endif
 
 function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 	" save previous search
@@ -72,7 +60,7 @@ endfunction
 " test presentation
 let s:regex_output_pref = '^TEST: \?'
 let s:regex_output_pref_optional = '^\(' . s:regex_output_pref . '\)\?'
-let s:regex_squarebrackets_mid_pref = '\['  " prev: '\(\s\)\['
+let s:regex_squarebrackets_mid_pref = '\['
 let s:regex_squarebrackets_end_pref = '\['
 let s:regex_squarebrackets_end_suff = '\]\s*$'
 let s:regex_squarebrackets_end_any_mid = '[^\]]\+'

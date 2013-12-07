@@ -6,14 +6,7 @@
 if has("eval")
 
 " inclusion control -- start {{{
-" fixed: change this so that the assignment to g:evlib_test_base_object_last
-"  at the end happens, even when the module had been loaded previously
-"  (so the 'finish' should go, and we should put almost everything in this
-"  script file within an 'if')
 if ( ! exists( 's:evlib_test_base_loaded' ) ) || ( exists( 'g:evlib_test_base_forceload' ) && ( g:evlib_test_base_forceload != 0 ) )
-" prev: if exists( 's:evlib_test_base_loaded' ) && ( ! ( exists( 'g:evlib_test_base_forceload' ) && ( g:evlib_test_base_forceload != 0 ) ) )
-" prev:		finish
-" prev: endif
 let s:evlib_test_base_loaded = 1
 unlet! g:evlib_test_base_forceload
 " }}}
@@ -240,10 +233,6 @@ let s:evlib_test_base_object = {
 " inclusion control -- end {{{
 endif " ... s:evlib_test_base_loaded ...
 " }}}
-
-" [debug] -- test
-"+ [debug] echomsg '[debug] base.vim: about to call s:evlib_test_base_object.f_testoutput_optionalgetredirfilename()'
-"+ [debug] echomsg '[debug] >' . s:evlib_test_base_object.f_testoutput_optionalgetredirfilename() . '<'
 
 " preserve the script object(s) as global {{{
 unlet! g:evlib_test_base_object_last

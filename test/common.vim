@@ -33,42 +33,6 @@ let g:evlib_test_common_rootdir = s:evlib_test_base_object.c_rootdir
 let g:evlib_test_common_test_testtrees_rootdir = s:evlib_test_base_object.c_testtrees_rootdir
 " these are variables defined in the global scope (need 'g:')
 "  -> we need proper functions
-if 0
-function EVLibTest_CodeGen_DefineWrapperFunction( wrapper_name, wrapped_expr_string, nargs_fixed, args_var_list )
-	let l:fundecl_args = ''
-	let l:funcall_pars = ''
-	for l:arg_id_now in range( 1, a:nargs_fixed )
-		let l:fundecl_args .= 'v' . l:arg_id_now . ', '
-		let l:funcall_pars .= 'a:v' . l:arg_id_now . ', '
-	endfor
-	let l:arg_id_now = 0
-	for l:arg_def_now in a:args_var_list
-		if l:arg_id_now == 0
-			let l:fundecl_args .= '...'
-		endif
-		let l:arg_id_now += 1
-		let l:funcall_pars .= '( ( ( a:0 ) >= ' . l:arg_id_now . ' ) ? a:' . l:arg_id_now . ' : (' . string( l:arg_def_now ) . ') ), '
-	endfor
-
-	" eliminate the last ',', if it exists
-	let l:regex_killlastcomma = ',\?\s*$'
-	let l:fundecl_args = substitute( l:fundecl_args, l:regex_killlastcomma, '', '' )
-	let l:funcall_pars = substitute( l:funcall_pars, l:regex_killlastcomma, '', '' )
-
-	return (
-			\		'function! ' . a:wrapper_name . '( ' .
-			\			l:fundecl_args .
-			\			' )' .
-			\				' | ' .
-			\				' return ' . a:wrapped_expr_string . '( ' .
-			\					l:funcall_pars .
-			\					' )' .
-			\				' | ' .
-			\				'endfunction'
-			\	)
-endfunction
-endif " 0 | !0
-
 function! EVLibTest_CodeGen_CallFunction( wrapped_expr_string, nargs_fixed, args_var_list )
 	let l:fundecl_args = ''
 	let l:funcall_pars = ''
@@ -99,47 +63,34 @@ function! EVLibTest_CodeGen_CallFunction( wrapped_expr_string, nargs_fixed, args
 			\	)
 endfunction
 
-" [debug] echomsg EVLibTest_CodeGen_DefineWrapperFunction( 'myWrapper', 'myWrapped', 3, [ 'one', 2 ] )
-" [debug] echomsg EVLibTest_CodeGen_DefineWrapperFunction( 'myWrapper', 'myWrapped', 3, [] )
-" [debug] echomsg EVLibTest_CodeGen_DefineWrapperFunction( 'myWrapper', 'myWrapped', 0, [ !0 ] )
-" [debug] echomsg EVLibTest_CodeGen_DefineWrapperFunction( 'myWrapper', 'myWrapped', 0, [] )
-
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_Module_Load', 's:evlib_test_base_object.f_module_load', 1, [] )
 function! EVLibTest_Module_Load( v1 )
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_module_load', 1, [] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_IsRedirectingToAFile', 's:evlib_test_base_object.f_testoutput_isredirectingtoafile', 0, [] )
 function! EVLibTest_TestOutput_IsRedirectingToAFile()
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_isredirectingtoafile', 0, [] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_OptionalGetRedirFilename', 's:evlib_test_base_object.f_testoutput_optionalgetredirfilename', 0, [ '' ] )
 function! EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_optionalgetredirfilename', 0, [ '' ] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_InitAndOpen', 's:evlib_test_base_object.f_testoutput_initandopen', 0, [ !0, '' ] )
 function! EVLibTest_TestOutput_InitAndOpen( ... )
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_initandopen', 0, [ !0, '' ] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_Reopen', 's:evlib_test_base_object.f_testoutput_reopen', 0, [] )
 function! EVLibTest_TestOutput_Reopen()
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_reopen', 0, [] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_Close', 's:evlib_test_base_object.f_testoutput_close', 0, [] )
 function! EVLibTest_TestOutput_Close()
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_close', 0, [] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_GetFormattedLinePrefix', 's:evlib_test_base_object.f_testoutput_getformattedlineprefix', 0, [] )
 function! EVLibTest_TestOutput_GetFormattedLinePrefix()
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_getformattedlineprefix', 0, [] )
 endfunction
 
-" prev: execute EVLibTest_CodeGen_DefineWrapperFunction( 'EVLibTest_TestOutput_OutputLine', 's:evlib_test_base_object.f_testoutput_outputline', 1, [] )
 function! EVLibTest_TestOutput_OutputLine( v1 )
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_outputline', 1, [] )
 endfunction
@@ -420,7 +371,6 @@ function EVLibTest_Group_End( ... )
 
 	let g:evlib_test_common_group_ntests = 0
 	let g:evlib_test_common_group_npass = 0
-	" FIXME: [debug] remove: call EVLibTest_Gen_InfoVarValue( 's:evlib_test_common_global_skippingtests_all_flag', 'EVLibTest_Group_End()' ) " [debug] " FIXME: remove this line
 	" only reset this flag conditionally
 	if s:evlib_test_common_global_skippingtests_flag && ( ! s:evlib_test_common_global_skippingtests_all_flag )
 		let s:evlib_test_common_global_skippingtests_flag = 0
@@ -451,7 +401,6 @@ endfunction
 " does variable cleanup, etc.
 function EVLibTest_Test_EndCommon( msg_result )
 	if s:evlib_test_common_in_test_flag
-		" prev: call EVLibTest_TestOutput_OutputLine( ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ': [' . a:msg_result . ']' )
 		let l:message_start = ( s:evlib_test_common_in_group_flag ? '   ' : '' ) . s:evlib_test_common_last_test_msg . ' '
 		let l:message_end_result = '[' . a:msg_result . ']'
 
@@ -521,7 +470,6 @@ function EVLibTest_Test_Result( rc, ... )
 			" flag this situation
 			let s:evlib_test_common_global_skippingtests_flag = 1
 			let s:evlib_test_common_global_skippingtests_all_flag = l:flag_skiprest_all
-			" FIXME: [debug] remove: call EVLibTest_Gen_InfoVarValue( 's:evlib_test_common_global_skippingtests_all_flag', 'EVLibTest_Test_Result()' ) " [debug] " FIXME: remove this line
 		endif
 	endif
 	return a:rc
@@ -588,7 +536,6 @@ function EVLibTest_Do_Check( test_msg, expr, ... )
 	if s:evlib_test_common_global_skippingtests_flag
 		let l:rc = 'skipped'
 	else
-		" FIXME: [debug] remove: let l:flag_silent = 0 " [debug] force non-silent mode " FIXME: remove this line
 		let l:cmd_pref_silent = ( l:flag_silent ? 'silent ' : '' )
 
 		if type( a:expr ) == type( function( 'EVLibTest_Group_Begin' ) )
@@ -598,7 +545,6 @@ function EVLibTest_Do_Check( test_msg, expr, ... )
 			unlet! l:rc_real
 			let l:result_throws = 0
 			try
-				" FIXME: [debug] remove: call EVLibTest_Gen_InfoMsg( '[debug] flags: "' . l:flags . '"; about to execute/eval: ' . l:cmd_pref_silent . a:expr ) " FIXME: remove this line
 				if l:flag_execute
 					execute l:cmd_pref_silent . 'execute a:expr'
 					" successful execution is mapped to a rc != 0
