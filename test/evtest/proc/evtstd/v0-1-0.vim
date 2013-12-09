@@ -14,27 +14,9 @@ set cpo&vim
 " }}} boiler plate -- prolog
 
 " include our 'base' script (variables, functions) {{{
-execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h:h:h:h' ) . '/' . 'base.vim'
+execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'c-defs.vim'
 " save object just created/returned into our own script variable
-let s:evlib_test_base_object = g:evlib_test_base_object_last
-" }}}
-
-function! s:Local_DefineFunctionFromFuncRef( fname, funcref )
-	for l:func_now in [ a:fname, 's:' . a:fname, 'b:' . a:fname ]
-		try
-			execute 'delfunction ' . l:func_now
-		catch
-		endtry
-	endfor
-
-	execute 'unlet! ' . a:fname . ' s:' . a:fname . ' b:' . a:fname
-	execute 'let s:' . a:fname . ' = a:funcref'
-endfunction
-
-" create mappings as if they were the real functions (see ':h Funcref') {{{
-"? call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_OptionalGetRedirFilename', s:evlib_test_base_object.f_testoutput_optionalgetredirfilename )
-"? call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_InitAndOpen', s:evlib_test_base_object.f_testoutput_initandopen )
-"? call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_Close', s:evlib_test_base_object.f_testoutput_close )
+let b:evlib_test_evtest_evtstd_base_object = g:evlib_test_evtest_evtstd_base_object_last
 " }}}
 
 function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
@@ -50,7 +32,7 @@ function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 endfunction
 
 " test presentation
-let s:regex_output_pref = '^TEST: \?'
+let s:regex_output_pref = '^' . b:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string
 let s:regex_output_pref_optional = '^\(' . s:regex_output_pref . '\)\?'
 let s:regex_squarebrackets_mid_pref = '\['
 let s:regex_squarebrackets_end_pref = '\['

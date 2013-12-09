@@ -38,6 +38,12 @@ endfunction
 " }}}
 " }}}
 
+" include our 'base' script (variables, functions) {{{
+call s:EVLibTest_Module_Load( 'evtest/proc/evtstd/c-defs.vim' )
+" save object just created/returned into our own script variable
+let s:evlib_test_evtest_evtstd_base_object = g:evlib_test_evtest_evtstd_base_object_last
+" }}}
+
 " support for writing the results to a file {{{
 let s:evlib_test_base_global_outputtofile_flag = 0
 let s:evlib_test_base_global_outputtofile_lastfile_escaped = ''
@@ -175,15 +181,16 @@ endfunction
 
 " }}}
 
-" MAYBE: make this include a "defs.vim" with just constants (useful for the
-"  'foldexpr' and 'foldtext' implementing functions)
+" TODO: make this include a "defs.vim" (done) with just constants (useful for
+"  the 'foldexpr' and 'foldtext' implementing functions)
+"
 "  MAYBE: ... and move constants there! (which might need some refactoring,
 "   too, in order to share just the literals on one hand, and then have
 "   regexes for matching the produced lines, on the other);
 
 " formatted output support {{{
 
-let s:evlib_test_base_output_lineprefix_string = 'TEST: '
+let s:evlib_test_base_output_lineprefix_string = s:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string
 
 function! s:EVLibTest_TestOutput_GetFormattedLinePrefix()
 	return s:evlib_test_base_output_lineprefix_string
