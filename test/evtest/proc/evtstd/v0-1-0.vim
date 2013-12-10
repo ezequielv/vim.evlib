@@ -16,14 +16,14 @@ set cpo&vim
 " include our 'base' script (variables, functions) {{{
 execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'c-defs.vim'
 " save object just created/returned into our own script variable
-let b:evlib_test_evtest_evtstd_base_object = g:evlib_test_evtest_evtstd_base_object_last
+let b:evlib_test_evtest_evtstd_base_object = deepcopy( g:evlib_test_evtest_evtstd_base_object_last )
 " }}}
 
-function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
+function! b:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 	" save previous search
 	let l:saved_register_search = @/
 
-	let l:line = substitute( getline( a:lnum ), s:regex_output_pref, '', '' )
+	let l:line = substitute( getline( a:lnum ), b:evlib_test_evtest_evtstd_base_object.c_output_pref, '', '' )
 
 	" recover previous search
 	let @/ = l:saved_register_search
@@ -32,44 +32,44 @@ function! s:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 endfunction
 
 " test presentation
-let s:regex_output_pref = '^' . b:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string
-let s:regex_output_pref_optional = '^\(' . s:regex_output_pref . '\)\?'
-let s:regex_squarebrackets_mid_pref = '\['
-let s:regex_squarebrackets_end_pref = '\['
-let s:regex_squarebrackets_end_suff = '\]\s*$'
-let s:regex_squarebrackets_end_any_mid = '[^\]]\+'
-let s:regex_squarebrackets_end_any_suff = s:regex_squarebrackets_end_any_mid . s:regex_squarebrackets_end_suff
-let s:regex_squarebrackets_end = s:regex_squarebrackets_end_pref . s:regex_squarebrackets_end_any_suff
-let s:regex_results_pref = '^RESULTS ('
-let s:regex_results_mid_any = '[^)]\+'
-let s:regex_results_suff = '):'
+let b:evlib_test_evtest_evtstd_base_object.c_output_pref = '^' . b:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string
+let b:evlib_test_evtest_evtstd_base_object.c_output_pref_optional = '^\(' . b:evlib_test_evtest_evtstd_base_object.c_output_pref . '\)\?'
+let b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_mid_pref = '\['
+let b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_pref = '\['
+let b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_suff = '\]\s*$'
+let b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_any_mid = '[^\]]\+'
+let b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_any_suff = b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_any_mid . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_suff
+let b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end = b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_pref . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_any_suff
+let b:evlib_test_evtest_evtstd_base_object.c_results_pref = '^RESULTS ('
+let b:evlib_test_evtest_evtstd_base_object.c_results_mid_any = '[^)]\+'
+let b:evlib_test_evtest_evtstd_base_object.c_results_suff = '):'
 " example: RESULTS (group total): tests: 4, pass: 1 -- rate: 25.00% [failed.results] [FAIL]
-let s:regex_results_fail_suff = '\[FAIL\]\s*$'
-let s:regex_keyword_tagged_pass = 'pass'
-let s:regex_keyword_tagged_skipped = 'skipped'
-let s:regex_keyword_tagged_failure_pref = 'failed\.'
-let s:regex_keyword_tagged_custom_pref = 'custom\.'
-let s:regex_tagged_mid_pref = s:regex_squarebrackets_mid_pref
-let s:regex_tagged_mid_mid_any = '[^\]]\+'
-let s:regex_tagged_mid_suff = '\]'
-let s:regex_tagged_mid_failure_all = s:regex_tagged_mid_pref . s:regex_keyword_tagged_failure_pref . s:regex_tagged_mid_mid_any . s:regex_tagged_mid_suff
-let s:regex_tagged_mid_custom_all  = s:regex_tagged_mid_pref . s:regex_keyword_tagged_custom_pref . s:regex_tagged_mid_mid_any . s:regex_tagged_mid_suff
-let s:regex_tagged_mid_other_all   = s:regex_tagged_mid_pref . '\(\(' . s:regex_keyword_tagged_failure_pref . '\)\|\(' . s:regex_keyword_tagged_custom_pref . '\)\)\@!' . s:regex_tagged_mid_mid_any . s:regex_tagged_mid_suff
-let s:regex_gen_tagged_any_failure_suff = s:regex_squarebrackets_end_pref . '\(\(' . s:regex_keyword_tagged_pass . '\)\|\(' . s:regex_keyword_tagged_skipped . '\)\)\@!' . s:regex_squarebrackets_end_any_suff
+let b:evlib_test_evtest_evtstd_base_object.c_results_fail_suff = '\[FAIL\]\s*$'
+let b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_pass = 'pass'
+let b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_skipped = 'skipped'
+let b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_failure_pref = 'failed\.'
+let b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_custom_pref = 'custom\.'
+let b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_pref = b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_mid_pref
+let b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_mid_any = '[^\]]\+'
+let b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_suff = '\]'
+let b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_failure_all = b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_pref . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_failure_pref . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_mid_any . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_suff
+let b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_custom_all  = b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_pref . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_custom_pref . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_mid_any . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_suff
+let b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_other_all   = b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_pref . '\(\(' . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_failure_pref . '\)\|\(' . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_custom_pref . '\)\)\@!' . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_mid_any . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_suff
+let b:evlib_test_evtest_evtstd_base_object.c_gen_tagged_any_failure_suff = b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_pref . '\(\(' . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_pass . '\)\|\(' . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_skipped . '\)\)\@!' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_any_suff
 " example: RESULTS (group total): tests: 4, pass: 1 -- rate: 25.00% [failed.results] [FAIL]
-let s:regex_results_group = s:regex_results_pref . 'group total' . s:regex_results_suff
+let b:evlib_test_evtest_evtstd_base_object.c_results_group = b:evlib_test_evtest_evtstd_base_object.c_results_pref . 'group total' . b:evlib_test_evtest_evtstd_base_object.c_results_suff
 " example: RESULTS (Total): tests: 14, pass: 3 -- [custom.results] [pass]
-let s:regex_results_total = s:regex_results_pref . 'Total' . s:regex_results_suff
+let b:evlib_test_evtest_evtstd_base_object.c_results_total = b:evlib_test_evtest_evtstd_base_object.c_results_pref . 'Total' . b:evlib_test_evtest_evtstd_base_object.c_results_suff
 " example:    test 1 (true) . . . . . . . . . . . . . . . . . . . . . . . [pass]
-let s:regex_testline_pref = '^ \{3,}'
-let s:regex_testline = s:regex_testline_pref . '.*' . s:regex_squarebrackets_end
+let b:evlib_test_evtest_evtstd_base_object.c_testline_pref = '^ \{3,}'
+let b:evlib_test_evtest_evtstd_base_object.c_testline = b:evlib_test_evtest_evtstd_base_object.c_testline_pref . '.*' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end
 " example: SUITE: suite #10.1: skip local/all test [custom] [{test}/vimrc_10_selftest-ex-local-pass.vim]
-let s:regex_suite_begin = '^SUITE: '
-let s:regex_suite_header = s:regex_suite_begin
+let b:evlib_test_evtest_evtstd_base_object.c_suite_begin = '^SUITE: '
+let b:evlib_test_evtest_evtstd_base_object.c_suite_header = b:evlib_test_evtest_evtstd_base_object.c_suite_begin
 " example: [group 1]
-let s:regex_group_begin = '^\['
-let s:regex_group_withcontent = s:regex_group_begin . '.*\]\(\(\s*$\)\|\( \[\)\)\@='
-let s:regex_line_with_tagged_result_pref = '\(\(' . s:regex_testline_pref . '\)\|\(' . s:regex_results_pref . '\)\)'
+let b:evlib_test_evtest_evtstd_base_object.c_group_begin = '^\['
+let b:evlib_test_evtest_evtstd_base_object.c_group_withcontent = b:evlib_test_evtest_evtstd_base_object.c_group_begin . '.*\]\(\(\s*$\)\|\( \[\)\)\@='
+let b:evlib_test_evtest_evtstd_base_object.c_line_with_tagged_result_pref = '\(\(' . b:evlib_test_evtest_evtstd_base_object.c_testline_pref . '\)\|\(' . b:evlib_test_evtest_evtstd_base_object.c_results_pref . '\)\)'
 
 function! b:EVLibTest_RunUtil_TestOutput_FoldingFun( lnum )
 	if ( ! exists( 'b:evlib_test_runtest_folding_stddata_level_offset' ) )
@@ -79,24 +79,24 @@ function! b:EVLibTest_RunUtil_TestOutput_FoldingFun( lnum )
 		let b:evlib_test_runtest_folding_group_level = b:evlib_test_runtest_folding_suite_level + 1
 	endif
 
-	"let l:line_prev    = s:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum - 1 )
-	let l:line_current = s:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum )
-	"let l:line_next    = s:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum + 1 )
+	"let l:line_prev    = b:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum - 1 )
+	let l:line_current = b:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum )
+	"let l:line_next    = b:EVLibTest_RunUtil_TestOutput_GetLine( a:lnum + 1 )
 
 	" example: SUITE: suite #10.1: skip local/all test [custom] [{test}/vimrc_10_selftest-ex-local-pass.vim]
-	if l:line_current =~ s:regex_suite_begin
+	if l:line_current =~ b:evlib_test_evtest_evtstd_base_object.c_suite_begin
 		return '>' . b:evlib_test_runtest_folding_suite_level
 	" example: [group 1]
-	elseif l:line_current =~ s:regex_group_begin
+	elseif l:line_current =~ b:evlib_test_evtest_evtstd_base_object.c_group_begin
 		return '>' . b:evlib_test_runtest_folding_group_level
 	" example:    test 1 (true) . . . . . . . . . . . . . . . . . . . . . . . [pass]
-	elseif l:line_current =~ s:regex_testline
+	elseif l:line_current =~ b:evlib_test_evtest_evtstd_base_object.c_testline
 		return '='
 	" example: RESULTS (group total): tests: 4, pass: 1 -- rate: 25.00% [failed.results] [FAIL]
-	elseif l:line_current =~ s:regex_results_group
+	elseif l:line_current =~ b:evlib_test_evtest_evtstd_base_object.c_results_group
 		return b:evlib_test_runtest_folding_group_level
 	" example: RESULTS (Total): tests: 14, pass: 3 -- [custom.results] [pass]
-	elseif l:line_current =~ s:regex_results_total
+	elseif l:line_current =~ b:evlib_test_evtest_evtstd_base_object.c_results_total
 		return b:evlib_test_runtest_folding_suite_level
 	endif
 	return '='
@@ -113,9 +113,9 @@ function! b:EVLibTest_RunUtil_TestOutput_FoldTextFun( ... )
 	let l:foldlevel_current = v:foldlevel
 	" NOTE: use variables defined in b:EVLibTest_RunUtil_TestOutput_FoldingFun()
 	if l:foldlevel_current == b:evlib_test_runtest_folding_suite_level
-		let l:regex_results_now = s:regex_results_total
+		let l:regex_results_now = b:evlib_test_evtest_evtstd_base_object.c_results_total
 	elseif l:foldlevel_current == b:evlib_test_runtest_folding_group_level
-		let l:regex_results_now = s:regex_results_group
+		let l:regex_results_now = b:evlib_test_evtest_evtstd_base_object.c_results_group
 	else
 		" don't do matching (use default)
 		let l:regex_results_now = ''
@@ -184,7 +184,7 @@ endfunction
 
 function! b:EVLibTest_RunUtil_TestOutput_SearchSuiteFail( search_forward_flag )
 	call b:EVLibTest_RunUtil_TestOutput_Search_Generic(
-				\		s:regex_results_total . '.*' . s:regex_results_fail_suff,
+				\		b:evlib_test_evtest_evtstd_base_object.c_results_total . '.*' . b:evlib_test_evtest_evtstd_base_object.c_results_fail_suff,
 				\		a:search_forward_flag,
 				\		'no more suite (total) failures'
 				\	)
@@ -192,7 +192,7 @@ endfunction
 
 function! b:EVLibTest_RunUtil_TestOutput_SearchGroupFail( search_forward_flag )
 	call b:EVLibTest_RunUtil_TestOutput_Search_Generic(
-				\		s:regex_results_group . '.*' . s:regex_results_fail_suff,
+				\		b:evlib_test_evtest_evtstd_base_object.c_results_group . '.*' . b:evlib_test_evtest_evtstd_base_object.c_results_fail_suff,
 				\		a:search_forward_flag,
 				\		'no more group failures'
 				\	)
@@ -200,7 +200,7 @@ endfunction
 
 function! b:EVLibTest_RunUtil_TestOutput_SearchTestFail( search_forward_flag )
 	call b:EVLibTest_RunUtil_TestOutput_Search_Generic(
-				\		s:regex_testline_pref . '.*' . s:regex_gen_tagged_any_failure_suff,
+				\		b:evlib_test_evtest_evtstd_base_object.c_testline_pref . '.*' . b:evlib_test_evtest_evtstd_base_object.c_gen_tagged_any_failure_suff,
 				\		a:search_forward_flag,
 				\		'no more test failures'
 				\	)
@@ -208,13 +208,13 @@ endfunction
 
 function! b:EVLibTest_RunUtil_TestOutput_SearchAnyFail( search_forward_flag )
 	call b:EVLibTest_RunUtil_TestOutput_Search_Generic(
-				\		s:regex_line_with_tagged_result_pref . '.*' . s:regex_gen_tagged_any_failure_suff,
+				\		b:evlib_test_evtest_evtstd_base_object.c_line_with_tagged_result_pref . '.*' . b:evlib_test_evtest_evtstd_base_object.c_gen_tagged_any_failure_suff,
 				\		a:search_forward_flag,
 				\		'no more failures of any kind'
 				\	)
 endfunction
 
-function! s:EVLibTest_RunUtil_ExecuteSilentlyNoErrors( expr )
+function! b:EVLibTest_RunUtil_ExecuteSilentlyNoErrors( expr )
 	let l:rc = !0
 	try
 		execute 'silent ' . a:expr
@@ -228,16 +228,16 @@ function! b:EVLibTest_RunUtil_TestOutput_Sanitise()
 	" save previous search
 	let l:saved_register_search = @/
 
-	call s:EVLibTest_RunUtil_ExecuteSilentlyNoErrors( '%g/^\s*$/d' )
-	call s:EVLibTest_RunUtil_ExecuteSilentlyNoErrors( '%s/^TEST: \?//' )
+	call b:EVLibTest_RunUtil_ExecuteSilentlyNoErrors( '%g/^\s*$/d' )
+	call b:EVLibTest_RunUtil_ExecuteSilentlyNoErrors( '%s/^TEST: \?//' )
 	silent 1
 
 	" recover previous search
 	let @/ = l:saved_register_search
 endfunction
 
-function! s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( regex )
-	return s:regex_output_pref_optional . substitute( a:regex, '\^', '', 'g' )
+function! b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( regex )
+	return b:evlib_test_evtest_evtstd_base_object.c_output_pref_optional . substitute( a:regex, '\^', '', 'g' )
 endfunction
 
 function! b:EVLibTest_RunUtil_TestOutput_Process()
@@ -253,37 +253,37 @@ function! b:EVLibTest_RunUtil_TestOutput_Process()
 	"? syntax clear
 	let b:current_syntax = "vimevtest"
 
-	"+ execute 'syntax match evtSuiteBegin /' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_suite_begin ) . '/'
-	execute 'syntax match evtSuiteBeginBegin /' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_suite_begin ) . '/'
-	execute 'syntax match evtDataContentVimScript /' . s:regex_squarebrackets_end_pref . s:regex_squarebrackets_end_any_mid . '\.vim' . s:regex_squarebrackets_end_suff . '/'
-	execute 'syntax region evtSuiteBeginLine start=/' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_suite_begin ) . '/ end=/$/ contains=evtSuiteBeginBegin,evtDataContentVimScript oneline keepend'
+	"+ execute 'syntax match evtSuiteBegin /' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_suite_begin ) . '/'
+	execute 'syntax match evtSuiteBeginBegin /' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_suite_begin ) . '/'
+	execute 'syntax match evtDataContentVimScript /' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_pref . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_any_mid . '\.vim' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_suff . '/'
+	execute 'syntax region evtSuiteBeginLine start=/' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_suite_begin ) . '/ end=/$/ contains=evtSuiteBeginBegin,evtDataContentVimScript oneline keepend'
 
-	execute 'syntax match evtGroupBegin /' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_group_withcontent ) . '/'
+	execute 'syntax match evtGroupBegin /' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_group_withcontent ) . '/'
 
-	execute 'syntax match evtTagLastAny /' . s:regex_squarebrackets_end . '/' . ' contained'
+	execute 'syntax match evtTagLastAny /' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end . '/' . ' contained'
 
-	execute 'syntax match evtTagLastPass /' . s:regex_squarebrackets_end_pref . s:regex_keyword_tagged_pass . s:regex_squarebrackets_end_suff . '/' . ' contained'
-	execute 'syntax match evtTagLastSkipped /' . s:regex_squarebrackets_end_pref . s:regex_keyword_tagged_skipped . s:regex_squarebrackets_end_suff . '/' . ' contained'
+	execute 'syntax match evtTagLastPass /' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_pref . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_pass . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_suff . '/' . ' contained'
+	execute 'syntax match evtTagLastSkipped /' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_pref . b:evlib_test_evtest_evtstd_base_object.c_keyword_tagged_skipped . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end_suff . '/' . ' contained'
 	syntax cluster evtTagLastAll contains=evtTagLastAny,evtTagLastPass,evtTagLastSkipped
 
 	"+execute 'syntax match evtTagMidCustom /' . '\[custom\.[^\]]\+\]' . '/' . ' contained'
-	execute 'syntax match evtTagMidCustom /' . s:regex_tagged_mid_custom_all . '/' . ' contained'
-	execute 'syntax match evtTagMidFailure /' . s:regex_tagged_mid_failure_all . '/' . ' contained'
-	"? execute 'syntax match evtTagMidOther /' . s:regex_tagged_mid_other_all . '/' . ' contained'
+	execute 'syntax match evtTagMidCustom /' . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_custom_all . '/' . ' contained'
+	execute 'syntax match evtTagMidFailure /' . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_failure_all . '/' . ' contained'
+	"? execute 'syntax match evtTagMidOther /' . b:evlib_test_evtest_evtstd_base_object.c_tagged_mid_other_all . '/' . ' contained'
 	syntax cluster evtTagMidAll contains=evtTagMidCustom,evtTagMidFailure,evtTagMidOther
 
-	execute 'syntax match evtResultHeaderSuite /' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_results_total ) . '/' . ' contained'
-	execute 'syntax match evtResultHeaderGroup /' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_results_group ) . '/' . ' contained'
+	execute 'syntax match evtResultHeaderSuite /' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_results_total ) . '/' . ' contained'
+	execute 'syntax match evtResultHeaderGroup /' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_results_group ) . '/' . ' contained'
 	syntax cluster evtResultHeaderAll contains=evtResultHeaderSuite,evtResultHeaderGroup
 
 	execute 'syntax match evtResultResultDataDetail /' . 'tests:\s*[[:digit:]]\+.\{,4}pass:\s*[[:digit:]]\+' . '/' . ' contained'
 	execute 'syntax match evtResultResultDataSummary /' . '\(\(\[custom\.results\]\)\|\(rate:\s*[[:digit:]\.%]\+\)\)' . '/' . ' contained'
 	syntax cluster evtResultResultDataAll contains=evtResultResultDataSummary,evtResultResultDataDetail
 
-	execute 'syntax match evtDataLineFiller /' . '\( \.\)\+\s*' . '\(' . s:regex_squarebrackets_end . '\)\@=' . '/' . ' contained'
+	execute 'syntax match evtDataLineFiller /' . '\( \.\)\+\s*' . '\(' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end . '\)\@=' . '/' . ' contained'
 
-	execute 'syntax region evtTestLine start=/' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_testline_pref ) . '/ end=/$/ contains=@evtTagLastAll,evtDataLineFiller oneline keepend'
-	execute 'syntax region evtResultsAll start=/' . s:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( s:regex_results_pref ) . s:regex_results_mid_any . s:regex_results_suff . '\s*' . '/ end=/$/ contains=@evtTagMidAll,@evtTagLastAll,@evtResultResultDataAll,@evtResultHeaderAll oneline keepend'
+	execute 'syntax region evtTestLine start=/' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_testline_pref ) . '/ end=/$/ contains=@evtTagLastAll,evtDataLineFiller oneline keepend'
+	execute 'syntax region evtResultsAll start=/' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_results_pref ) . b:evlib_test_evtest_evtstd_base_object.c_results_mid_any . b:evlib_test_evtest_evtstd_base_object.c_results_suff . '\s*' . '/ end=/$/ contains=@evtTagMidAll,@evtTagLastAll,@evtResultResultDataAll,@evtResultHeaderAll oneline keepend'
 
 	" syntax_highlighting {{{
 	" calculate which keys (from the ones available below)
