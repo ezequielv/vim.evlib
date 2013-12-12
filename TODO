@@ -307,4 +307,12 @@ run tests from vim:
 	"        detect active redirections -- and leave them undisturbed if they
 	"        have already been set up;
 	"
+	" * test preambles:
+	"  * we can leave up to each "definition file" to define a function for
+	"     writing the preamble information;
+	"    IDEA: have each script define a function as "script-local", then
+	"     expose the function through a Funcref in a global variable (which we
+	"     will copy to a script/local variable and then 'unlet', to allow
+	"     other modules to do the same thing)
+	"
 
