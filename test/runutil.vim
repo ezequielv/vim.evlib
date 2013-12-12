@@ -57,6 +57,54 @@ function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
 	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\" )' ), ' ' )
 endfunction
 
+function! s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( list, list_len_adjust )
+	let l:list_len = len( a:list )
+	let l:ret_list = ( ( l:list_len < a:list_len_adjust ) ? ( copy( a:list ) + repeat( [ 0 ], ( a:list_len_adjust - l:list_len ) ) ) : a:list )
+	return l:ret_list
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( test_processors_groups_list, test_processors_groups_list_elem_commit )
+	" only consider a:test_processors_groups_list_elem_commit non-empty
+	"  when it has a non-empty files list
+	if ( has_key( a:test_processors_groups_list_elem_commit, 'files' ) ) && ( ! ( empty( a:test_processors_groups_list_elem_commit.files ) ) )
+		call add( a:test_processors_groups_list, deepcopy( a:test_processors_groups_list_elem_commit ) )
+	endif
+
+	" remove all entries in the user's dictionary
+	call filter( a:test_processors_groups_list_elem_commit, '0' )
+	" extend() it with our entries
+	call extend(
+			\		a:test_processors_groups_list_elem_commit,
+			\		deepcopy(
+			\				{
+			\					'categtype': 'unknown',
+			\					'sort_index': 9999,
+			\					'files': [],
+			\				},
+			\			)
+			\	)
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_VersionListSortFun( l1, l2 )
+	let l:l1_len = len( a:l1 )
+	let l:l2_len = len( a:l2 )
+	let l:list_len_max = max( l1_len, l2_len )
+	let l:l1 = s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( a:l1, l:list_len_max )
+	let l:l2 = s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( a:l2, l:list_len_max )
+	for l:index_now in range( l:list_len_max ) " 0 .. len() - 1
+		let l:comp_result = l:l1[ l:index_now ] - l:l2[ l:index_now ]
+		if l:comp_result != 0
+			return l:comp_result
+		endif
+	endfor
+	" they are equal if we never managed to find a difference
+	return 0
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_ProcessorsToFilesMapDict_Versioned_SortFun( v1, v2 )
+	return s:EVLibTest_RunUtil_Local_VersionListSortFun( v1.version, v2.version )
+endfunction
+
 function! EVLibTest_RunUtil_Command_RunTests( ... )
 	let l:process_flag = !0 " true
 	let l:do_help_flag = 0 " false
@@ -183,6 +231,269 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 		" no_need_now: return 0
 	endif
 	" }}}
+	" }}}
+
+	" organise the test files (l:test_files) into groups {{{
+	let l:test_processors_to_files_map = {}
+	for l:test_file_now in l:test_files
+		unlet! l:test_file_defs
+		let l:test_file_defs = {}
+		for l:stage_id_now in range( 1, 5 )
+			if l:stage_id_now == 1
+				" FIXME: "definition" file in same dir as the test
+			elseif l:stage_id_now == 2
+				" FIXME: "definition" file in test dir's parent
+			elseif l:stage_id_now == 3
+				" FIXME: calculate from file name
+			elseif l:stage_id_now == 4
+				" FIXME: calculate from dir names leading to file name
+			elseif l:stage_id_now == 5
+				" force our internal "definition" file
+				" FIXME: get processor version (and name?) from somewhere else ('c-defs.vim'?)
+				" FIXME: (see 'TODO' file): also add a 'Funcref' (or more than
+				"  one) to output test information before actually executing
+				"  each test
+				"  MAYBE: leave that task (define those functions) to another
+				"   file, so we keep the "defs" file clean (and only having
+				"   "defs"), and also decoupling test definition with actual
+				"   script code (as it's currently the case)
+				let l:test_file_defs = {
+						\		'processor': {
+						\				'name': 'evtstd',
+						\				'version': [ 0, 1, 0 ],
+						\			},
+						\	}
+			endif
+			" FIXME: react to variables set per stage:
+			"  FIXME: find definition in specified dir
+			" FIXME: do more checks (maybe looking for some required
+			"  dictionary keys)
+			if ( ! empty( l:test_file_defs ) )
+				break
+			endif
+		endfor
+		if ( ! empty( l:test_file_defs ) )
+			" NOTE: data structures:
+			"  example:
+			"   l:test_processors_to_files_map = {
+			"			'evtstd': {
+			"					'versioned': [
+			"							{	'version': [ 0, 1, 0 ],
+			"								'files': [ 'file1.vim', 'file2.vim' ],
+			"							},
+			"							{	'version': [ 0, 2, 0 ],
+			"								'files': [ 'file3.vim' ]
+			"							},
+			"						],
+			"					'plain': [ 'file_p1.vim', 'file_p2.vim' ],
+			"				}
+			"			'user01': {
+			"					'plain': [ 'file_u1.vim', 'file_u2.vim' ],
+			"				}
+			"		}
+			"
+			" IDEA:
+			"  * do not group the files under the same version -> just have a
+			"     list of elements like this:
+			"     [ VERSION_ELEMENT, FILE ]
+			"   * pros/cons:
+			"    [=] the existing l:test_processors_to_files_map elements have
+			"         got to be iterated anyway, so we don't lose performance;
+			"    [+] constant-time insertion time (no lookups, no searches);
+			"
+			" IDEA:
+			"  * make all dictionary entries ('versioned' already is, but
+			"     'plain' is not) dictionaries themselves, then add
+			"     'sort_index' with the lowest number in the set (':h min()'),
+			"     so that we can sort the processor-based groups based on the
+			"     "earliest" file for each one (so the group for the first
+			"     user-specified file will be processed first, then the group
+			"     for the next file that isn't in the same group, and so on)
+			"
+			" NOTE:
+			"  * in the 'version' list, items are sorted (maybe after all
+			"     insertions were done?);
+			"  * maybe we need an intermediate structure before we are in a
+			"     position to populate l:test_processors_to_files_map
+			"     efficiently
+			"  * processing can then iterate through each processor, and
+			"     within each one, each version group and then the 'plain'
+			"     one (should not happen normally, but I don't want to dictate
+			"     what users can do with this);
+			"
+			" IDEA: intermediate structure/list:
+			" 	l:test_files_processor_data_list = [
+			"			[ [ 'file1.vim', 'file2.vim' ], file_defs_01 ],
+			"			[ [ 'file3.vim' ], file_defs_02 ],
+			"			[ [ 'file_p1.vim', 'file_p2.vim' ], file_defs_03 ],
+			"			[ [ 'file_u1.vim', 'file_u2.vim' ], file_defs_04 ],
+			"		]
+			"	NOTES:
+			"	 * constant insertion speed (at the end) when processing
+			"	    elements in the l:test_files list;
+			"	 * first list element could be a string, rather than a list,
+			"	    if that's easier (it probably is);
+			"
+			echomsg '[debug] l:test_file_defs: ' . string( l:test_file_defs )
+			let l:test_file_defs_processor_dict = l:test_file_defs.processor
+			let l:test_file_defs_processor_hasversion_flag = ( has_key( l:test_file_defs_processor_dict, 'version' ) )
+			let l:test_processors_to_files_map_key_now = l:test_file_defs_processor_dict.name
+			" create first (empty) element if it does not exist
+			if ( ! has_key( l:test_processors_to_files_map, l:test_processors_to_files_map_key_now ) )
+				let l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ] = {
+						\		'versioned': [],
+						\		'plain': [],
+						\	}
+			endif
+			let l:test_processors_to_files_map_entry_now = l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ]
+			if ( l:test_file_defs_processor_hasversion_flag )
+				" find an element with 'version' matching the current one
+				let l:test_processors_to_files_map_entry_now_versioned_elem_found = {}
+				"
+				" MAYBE: make this bit more efficient, if necessary
+				" NOTE: this 'for' loop could be avoided if we used another
+				"  data structure with "references" to existing dictionaries.
+				"  something like:
+				"   {
+				"   	" string_representation_of_version_array: dictionary reference
+				"   	'[0, 1, 0]': dict_entry_01,
+				"   	'(none)': dict_entry_02,
+				"   }
+				"   * then, we just use 'has_key()' to detect whether we have
+				"      an element matching the version (or the 'plain'
+				"      element);
+				"   * we can easily create this string representation
+				"      ('string(expression)');
+				for l:test_processors_to_files_map_entry_now_versioned_elem_now in l:test_processors_to_files_map_entry_now.versioned
+					if ( l:test_processors_to_files_map_entry_now_versioned_elem_now.version == l:test_file_defs_processor_dict.version )
+						" add element and store its reference in a variable
+						let l:test_processors_to_files_map_entry_now_versioned_elem_found = l:test_processors_to_files_map_entry_now_versioned_elem_now
+						break
+					endif
+				endfor
+				" if no elements with a matching version were found,
+				if empty( l:test_processors_to_files_map_entry_now_versioned_elem_found )
+					" we will use the clean (and so far, empty) instance, and
+					"  add a few values
+					let l:test_processors_to_files_map_entry_now_versioned_elem_found.version = l:test_file_defs_processor_dict.version
+					let l:test_processors_to_files_map_entry_now_versioned_elem_found.files = []
+					" add a reference to this new dictionary object instance
+					"  at the end of the appropriate list
+					call add( l:test_processors_to_files_map_entry_now.versioned, l:test_processors_to_files_map_entry_now_versioned_elem_found )
+				endif
+				let l:test_processors_to_files_map_entry_now_common_files_list = l:test_processors_to_files_map_entry_now_versioned_elem_found.files
+				" common processing (existing elements for previous files, or
+				"  new element for this file)
+			else
+				let l:test_processors_to_files_map_entry_now_common_files_list = l:test_processors_to_files_map_entry_now.plain
+			endif
+			" add the directory(/file) that has lead us to this group
+			"  (NOTE: this is so that when trying to find the "processor" for this
+			"  group, we can look files up in the right directories)
+			call add( l:test_processors_to_files_map_entry_now_common_files_list, l:test_file_now )
+		else
+			" FIXME: deal with the error -- would this be considered "unexpected"?
+			" IDEA: add each one of these to a group without a "processor", so
+			"  that they can be run together, but without output processing
+			"  (we can write our "test preamble" messages before running each
+			"  test, but then each test will create its own output (possible
+			"  with each chunk looking different from the previous one)
+		endif
+	endfor
+	echomsg '[debug] l:test_processors_to_files_map: ' . string( l:test_processors_to_files_map )
+	" }}}
+
+	" for each group, find its "processor" and other related data {{{
+	" data structures:
+	" 	l:test_processors_groups_list = [
+	" 			{
+	" 				'name': 'evtstd',
+	" 				'categtype': 'versioned',
+	" 				'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
+	" 				'sort_index': 1,
+	" 				'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
+	" 				'files': [ 'file1.vim', 'file2.vim', 'file3.vim' ]
+	" 				'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+	" 			},
+	" 			{
+	" 				'name': 'evtstd',
+	" 				'categtype': 'plain',
+	" 				'sort_index': 2,
+	" 				'process_script_pre': 'evtstd_plain_pre.vim',
+	" 				'files': [ 'file_p1.vim', 'file_p2.vim' ]
+	" 				'process_script_out': 'evtstd_plain_out.vim',
+	" 			},
+	" 			{
+	" 				'name': 'user01',
+	" 				'categtype': 'plain',
+	" 				'sort_index': 3,
+	" 				'process_script_pre': 'user01_pre.vim',
+	" 				'files': [ 'file_u1.vim', 'file_u2.vim' ]
+	" 				'process_script_out': 'user01_out.vim',
+	" 			},
+	" 		]
+	let l:test_processors_groups_list = []
+	"? let l:test_processors_to_files_map_key_last = ''
+	for l:test_processors_to_files_map_key_now in keys( l:test_processors_to_files_map )
+		let l:test_processors_groups_list_elem_commit = {} " empty by default (empty() will be used to detect pending commits)
+		let l:test_processors_to_files_map_elem_now = l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ]
+		for l:test_processors_to_files_map_elem_categkey_now in [ 'versioned', 'plain' ]
+			" conditionally add pending "groups list" element
+			call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
+			let l:test_processors_groups_list_elem_commit.name = l:test_processors_to_files_map_key_now
+			let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
+			let l:test_processors_groups_list_elem_commit.sort_index = 0 " FIXME: put the right value here
+
+			" skip non-existing dictionary entries
+			if ( ! has_key( l:test_processors_to_files_map_elem_now, l:test_processors_to_files_map_elem_categkey_now ) )
+				continue
+			endif
+
+			let l:test_processors_to_files_map_elem_categ_elem_now = l:test_processors_to_files_map_elem_now[ l:test_processors_to_files_map_elem_categkey_now ]
+
+			" skip empty dictionary entries
+			if ( empty( l:test_processors_to_files_map_elem_categ_elem_now ) )
+				continue
+			endif
+
+			if l:test_processors_to_files_map_elem_categkey_now == 'versioned'
+				" sort the elements in the 'versioned' list (custom sort order)
+				call sort( l:test_processors_to_files_map_elem_categ_elem_now, function( 's:EVLibTest_RunUtil_Local_ProcessorsToFilesMapDict_Versioned_SortFun' ) )
+				let l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_last_version_list = [ 0, 0 ]
+				for l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now in l:test_processors_to_files_map_elem_categ_elem_now
+					if l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version[ 0 ] != l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_last_version_list[ 0 ]
+						call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
+						let l:test_processors_groups_list_elem_commit.name = l:test_processors_to_files_map_key_now
+						let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
+						let l:test_processors_groups_list_elem_commit.sort_index = 0 " FIXME: put the right value here
+						" NOTE: done in invoked function: let l:test_processors_groups_list_elem_commit.files = []
+						echomsg '[debug] detected major version change. added versioned files up to this point.'
+					endif
+
+					" FIXME: add the current element data to our l:test_processors_groups_list_elem_commit variable
+					"  ref: l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version -> 'version_range'
+					call extend( l:test_processors_groups_list_elem_commit.files, l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.files )
+
+					" save our "last" version list for next iteration's
+					"  comparison
+					let l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_last_version_list = l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version
+				endfor
+				" FIXME: process each element in the 'version' dictionary entry (list)
+				" FIXME: when an incompatible version transition has been
+				"  found, call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem()
+			elseif l:test_processors_to_files_map_elem_categkey_now == 'plain'
+				call extend( l:test_processors_groups_list_elem_commit.files, l:test_processors_to_files_map_elem_categ_elem_now )
+				" leave to code outside this loop (or next iteration inside
+				"  this loop) to actually add this element
+				echomsg '[debug] added plain files'
+			else
+				" FIXME: handle error (this would be an internal error)
+			endif
+		endfor
+		" conditionally add pending "groups list" element
+		call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
+	endfor
+	echomsg '[debug] l:test_processors_groups_list: ' . string( l:test_processors_groups_list )
 	" }}}
 
 	" pre-test run initialisations {{{
