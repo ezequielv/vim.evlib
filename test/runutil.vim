@@ -105,6 +105,14 @@ function! s:EVLibTest_RunUtil_Local_ProcessorsToFilesMapDict_Versioned_SortFun( 
 	return s:EVLibTest_RunUtil_Local_VersionListSortFun( v1.version, v2.version )
 endfunction
 
+function! s:EVLibTest_RunUtil_Local_SortFun_NormaliseCompResult( comp_result )
+	return ( ( a:comp_result == 0 ) ? 0 : ( ( a:comp_result > 0 ) ? 1 : -1 ) )
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_ProcessorsGroupsList_SortFun( v1, v2 )
+	return s:EVLibTest_RunUtil_Local_SortFun_NormaliseCompResult( ( v1.sort_index - v2.sort_index ) )
+endfunction
+
 function! EVLibTest_RunUtil_Command_RunTests( ... )
 	let l:process_flag = !0 " true
 	let l:do_help_flag = 0 " false
@@ -235,18 +243,68 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 
 	" organise the test files (l:test_files) into groups {{{
 	let l:test_processors_to_files_map = {}
+	let l:test_file_norder_now = 0
 	for l:test_file_now in l:test_files
 		unlet! l:test_file_defs
-		let l:test_file_defs = {}
+		let l:test_file_norder_now += 1
 		for l:stage_id_now in range( 1, 5 )
+			let l:test_file_defs = {}
+			" NOTE: other example values for l:test_file_defs :
+			" 	{
+			" 		'processor': {
+			" 				'file': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
+			" 			},
+			" 	}
+			"
+			" 	{
+			" 		'processor': {
+			" 				" note: starting with './' will get the same dir
+			" 				"  as the file from which this definition was read
+			" 				"  from (possible to be stored in a local
+			" 				"  variable, to make processing of such entries
+			" 				"  more generic)
+			" 				'file': './proc/myprocessor.vim',
+			" 			},
+			" 	}
+			"
+			" for tests in our "test" directory (note the "keep going" flag):
+			" ( 'defs.continue' )
+			"
+			" 	in a test file:
+			" 	{
+			" 		'vimmode': 'ex', " other values: 'visual', 'gui'
+			" 		'flags': [ 'defs.continue' ],
+			" 	}
+			"
+			" 	then in our test directory:
+			" 	{
+			" 		'processor': {
+			" 				'name': 'evtstd',
+			"				" note: alternatively, take the version from
+			"				"  another file, which would define the version
+			"				"  for which the processor has been coded
+			"				'version': [ 0, 1, 0 ],
+			" 			},
+			" 		" no 'flags' entry -> assume it empty ->
+			" 		"	assume 'defs.continue' is not set ->
+			" 		"   	stop the 'populate l:test_file_defs' algorithm
+			" 	}
+			"
 			if l:stage_id_now == 1
-				" FIXME: "definition" file in same dir as the test
+				" FIXME: "source" the file in a special mode (g:evlib_test_testfile_source_mode == 'getdefs') to get the value to be ultimately stored in l:test_file_defs
+				" FIXME: heuristic: calculate from file name (strong match)
+				" FIXME: heuristic: calculate from dir names leading to file name (strong match)
 			elseif l:stage_id_now == 2
-				" FIXME: "definition" file in test dir's parent
+				" FIXME: "definition" file based on the name of the test file
+				"  (look in a series of directories)
 			elseif l:stage_id_now == 3
-				" FIXME: calculate from file name
+				" FIXME: "definition" file *not* based on the name of the test
+				"  file (look in a series of directories) -- this is
+				"   "cacheable" (as other files in the same dir would have the
+				"   exact same output at this stage)
 			elseif l:stage_id_now == 4
-				" FIXME: calculate from dir names leading to file name
+				" FIXME: heuristic: calculate from file name (weak match)
+				" FIXME: heuristic: calculate from dir names leading to file name (weak match)
 			elseif l:stage_id_now == 5
 				" force our internal "definition" file
 				" FIXME: get processor version (and name?) from somewhere else ('c-defs.vim'?)
@@ -285,11 +343,26 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			"								'files': [ 'file3.vim' ]
 			"							},
 			"						],
+			" 					'sort_index': 1,
+			"					'procflags': [],
+			"				},
+			"			'userplain01': {
 			"					'plain': [ 'file_p1.vim', 'file_p2.vim' ],
-			"				}
+			" 					'sort_index': 2,
+			"					'procflags': [],
+			"				},
+			"			" note how there is a flag to denote the processor as
+			"			"  'resolved' file:
+			"			'/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim': {
+			"					'plain': [ 'file_f1.vim', 'file_f2.vim' ],
+			" 					'sort_index': 3,
+			"					'procflags': [ 'file' ],
+			"				},
 			"			'user01': {
 			"					'plain': [ 'file_u1.vim', 'file_u2.vim' ],
-			"				}
+			" 					'sort_index': 4,
+			"					'procflags': [],
+			"				},
 			"		}
 			"
 			" IDEA:
@@ -337,13 +410,32 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			echomsg '[debug] l:test_file_defs: ' . string( l:test_file_defs )
 			let l:test_file_defs_processor_dict = l:test_file_defs.processor
 			let l:test_file_defs_processor_hasversion_flag = ( has_key( l:test_file_defs_processor_dict, 'version' ) )
-			let l:test_processors_to_files_map_key_now = l:test_file_defs_processor_dict.name
+			let l:test_file_defs_processor_isfile_flag = ( has_key( l:test_file_defs_processor_dict, 'file' ) )
+			if l:test_file_defs_processor_hasversion_flag && l:test_file_defs_processor_isfile_flag
+				" FIXME: report the error: we should not (for now?) have a file with "version" support
+			endif
+			if ( l:test_file_defs_processor_isfile_flag )
+				" FIXME: in the case of a file, we'll want to use a resolved name,
+				"  not the literal value specified by our 'source' defs dictionary
+				"  entry
+				let l:test_processors_to_files_map_key_now = l:test_file_defs_processor_dict.file
+			else
+				let l:test_processors_to_files_map_key_now = l:test_file_defs_processor_dict.name
+			endif
 			" create first (empty) element if it does not exist
 			if ( ! has_key( l:test_processors_to_files_map, l:test_processors_to_files_map_key_now ) )
 				let l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ] = {
-						\		'versioned': [],
-						\		'plain': [],
-						\	}
+							\		'sort_index': l:test_file_norder_now,
+							\		'procflags': [],
+							\	}
+				if l:test_file_defs_processor_hasversion_flag
+					let l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ].versioned = []
+				else
+					let l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ].plain = []
+				endif
+				if l:test_file_defs_processor_isfile_flag
+					call add( l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ].procflags, 'file' )
+				endif
 			endif
 			let l:test_processors_to_files_map_entry_now = l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ]
 			if ( l:test_file_defs_processor_hasversion_flag )
@@ -409,6 +501,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" 			{
 	" 				'name': 'evtstd',
 	" 				'categtype': 'versioned',
+	"				'procflags': [],
 	" 				'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
 	" 				'sort_index': 1,
 	" 				'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
@@ -416,17 +509,26 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" 				'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
 	" 			},
 	" 			{
-	" 				'name': 'evtstd',
+	" 				'name': 'userplain01',
 	" 				'categtype': 'plain',
+	"				'procflags': [],
 	" 				'sort_index': 2,
-	" 				'process_script_pre': 'evtstd_plain_pre.vim',
+	" 				'process_script_pre': 'userplain01_pre.vim',
 	" 				'files': [ 'file_p1.vim', 'file_p2.vim' ]
-	" 				'process_script_out': 'evtstd_plain_out.vim',
+	" 				'process_script_out': 'userplain01_out.vim',
+	" 			},
+	" 			{
+	" 				'name': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
+	" 				'categtype': 'plain',
+	"				'procflags': [ 'file' ],
+	" 				'sort_index': 3,
+	" 				'files': [ 'file_f1.vim', 'file_f2.vim' ]
 	" 			},
 	" 			{
 	" 				'name': 'user01',
 	" 				'categtype': 'plain',
-	" 				'sort_index': 3,
+	"				'procflags': [],
+	" 				'sort_index': 4,
 	" 				'process_script_pre': 'user01_pre.vim',
 	" 				'files': [ 'file_u1.vim', 'file_u2.vim' ]
 	" 				'process_script_out': 'user01_out.vim',
@@ -437,12 +539,15 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	for l:test_processors_to_files_map_key_now in keys( l:test_processors_to_files_map )
 		let l:test_processors_groups_list_elem_commit = {} " empty by default (empty() will be used to detect pending commits)
 		let l:test_processors_to_files_map_elem_now = l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ]
+		let l:test_processors_to_files_map_elem_sortindex_now = l:test_processors_to_files_map_elem_now.sort_index
+		let l:test_processors_to_files_map_elem_procflags_now = l:test_processors_to_files_map_elem_now.procflags
 		for l:test_processors_to_files_map_elem_categkey_now in [ 'versioned', 'plain' ]
 			" conditionally add pending "groups list" element
 			call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
 			let l:test_processors_groups_list_elem_commit.name = l:test_processors_to_files_map_key_now
 			let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
-			let l:test_processors_groups_list_elem_commit.sort_index = 0 " FIXME: put the right value here
+			let l:test_processors_groups_list_elem_commit.sort_index = l:test_processors_to_files_map_elem_sortindex_now
+			let l:test_processors_groups_list_elem_commit.procflags = l:test_processors_to_files_map_elem_procflags_now
 
 			" skip non-existing dictionary entries
 			if ( ! has_key( l:test_processors_to_files_map_elem_now, l:test_processors_to_files_map_elem_categkey_now ) )
@@ -465,7 +570,8 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 						call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
 						let l:test_processors_groups_list_elem_commit.name = l:test_processors_to_files_map_key_now
 						let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
-						let l:test_processors_groups_list_elem_commit.sort_index = 0 " FIXME: put the right value here
+						let l:test_processors_groups_list_elem_commit.sort_index = l:test_processors_to_files_map_elem_sortindex_now
+						let l:test_processors_groups_list_elem_commit.procflags = l:test_processors_to_files_map_elem_procflags_now
 						" NOTE: done in invoked function: let l:test_processors_groups_list_elem_commit.files = []
 						echomsg '[debug] detected major version change. added versioned files up to this point.'
 					endif
@@ -493,6 +599,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 		" conditionally add pending "groups list" element
 		call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
 	endfor
+	call sort( l:test_processors_groups_list, function( 's:EVLibTest_RunUtil_Local_ProcessorsGroupsList_SortFun' ) )
 	echomsg '[debug] l:test_processors_groups_list: ' . string( l:test_processors_groups_list )
 	" }}}
 
