@@ -210,17 +210,13 @@ function! s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( test_processors_groups_li
 	if ( l:success ) && ( has_key( a:test_processors_groups_list_elem_commit, 'files' ) ) && ( ! ( empty( a:test_processors_groups_list_elem_commit.files ) ) )
 		let l:processor_id = a:test_processors_groups_list_elem_commit.processor_id
 		if ( s:EVLibTest_RunUtil_Local_ProcessorFlagsHas( a:test_processors_groups_list_elem_commit.procflags, 'file' ) )
+			if ( ! has_key( a:test_processors_groups_list_elem_commit, 'processor_defs_data' ) )
+				let a:test_processors_groups_list_elem_commit.processor_defs_data = {}
+			endif
 			" copy the 'file' as the 'process_script_out'
-			let a:test_processors_groups_list_elem_commit.process_script_out = l:processor_id
-		else
-			" resolve the processor script, and write its value under the key 'process_script_out'
-
-			" prev: " FIXME: do this better -- for now, we'll force the only processor we've got for 'evtstd'
-			" prev: if l:processor_id == 'evtstd'
-			" prev: 	let a:test_processors_groups_list_elem_commit.process_script_out = s:evlib_test_base_object.c_testdir . '/' . 'evtest/proc/evtstd/v0-1-0.vim'
-			" prev: endif
+			let a:test_processors_groups_list_elem_commit.processor_defs_data.process_script_out = l:processor_id
 		endif
-		if ( !( has_key( a:test_processors_groups_list_elem_commit, 'process_script_out' ) ) )
+		if ( !( has_key( a:test_processors_groups_list_elem_commit, 'processor_defs_data' ) ) )
 			" FIXME: throw an error: this should never happen
 			let l:success = 0 " false
 		endif
@@ -312,7 +308,7 @@ function! s:EVLibTest_RunUtil_Local_ProcGroupsElemSetup_Common( test_processors_
 
 			if ( l:process_flag )
 				for l:dict_key_now in [
-							\		'process_script_out',
+							\		'processor_defs_data',
 							\	]
 					let l:test_processors_groups_list_elem_commit[ l:dict_key_now ] = l:processors_defs_dict_entry_leafentries_ref[ l:dict_key_now ]
 				endfor
@@ -346,21 +342,29 @@ endfunction
 "					'version_list': [
 "							{
 "								'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
-"								'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+"								'processor_defs_data': {
+"										'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+"									},
 "							},
 "							{
 "								'version_range': [ [ 1, 0, 0 ], [ 1, 4, 20 ] ],
-"								'process_script_out': 'evtest/proc/evtstd/v1-4-20.vim',
+"								'processor_defs_data': {
+"										'process_script_out': 'evtest/proc/evtstd/v1-4-20.vim',
+"									},
 "							},
 "						],
 " 				},
 " 			'userplain01': {
 " 					'categtype': 'plain',
-" 					'process_script_out': 'userplain01_out.vim',
+"					'processor_defs_data': {
+" 							'process_script_out': 'userplain01_out.vim',
+" 						},
 " 				},
 " 			'user01': {
 " 					'categtype': 'plain',
-" 					'process_script_out': 'user01_out.vim',
+"					'processor_defs_data': {
+" 							'process_script_out': 'user01_out.vim',
+" 						},
 " 				},
 " 		}
 
@@ -371,12 +375,12 @@ endfunction
 "  where a:defs_entry_data = {
 "  		'processor_id': ...,
 "  		'version_range': ...,
-"  		'process_script_out': ...,
+"  		'processor_defs_data': ...,
 "  	}
 "  or a:defs_entry_data = {
 "  		'processor_id': ...,
 "  		" no 'version_range' means 'plain' in this context
-"  		'process_script_out': ...,
+"  		'processor_defs_data': ...,
 "  	}
 "  	so the function will:
 "  	 * create parent dictionary entries (like a:defs_dict_dst.version_list);
@@ -469,9 +473,9 @@ function! s:EVLibTest_RunUtil_Local_ProcessorDef_Add( defs_dict_dst, defs_entry_
 		" write the "leaf" key values
 		if ( l:write_entry_flag )
 			for l:dict_key_now in [
-						\		'process_script_out',
+						\		'processor_defs_data',
 						\	]
-				let l:dst_entry_for_leaf_keys[ l:dict_key_now ] = a:defs_entry_data[ l:dict_key_now ]
+				let l:dst_entry_for_leaf_keys[ l:dict_key_now ] = deepcopy( a:defs_entry_data[ l:dict_key_now ] )
 			endfor
 		endif
 	endif
@@ -562,7 +566,9 @@ function! s:EVLibTest_RunUtil_Local_PopulateProcessorDefs( test_files )
 												\		s:evlib_test_local_processors_defs_dict,
 												\		{	'processor_id': l:processor_id,
 												\			'version_range': [ l:version_range_start, l:version_from_file_list ],
-												\			'process_script_out': l:processor_file_now,
+												\			'processor_defs_data': {
+												\					'process_script_out': l:processor_file_now,
+												\				},
 												\		}
 												\	)
 								" LATER: catch " catch all exceptions
@@ -982,18 +988,22 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	"				'procflags': [],
 	" 				"-? 'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
 	" 				'sort_index': 1,
-	" 				"-? 'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
 	" 				'files': [ 'file1.vim', 'file2.vim', 'file3.vim' ]
-	" 				'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+	" 				'processor_defs_data': {
+	" 						"-? 'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
+	" 						'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+	" 					},
 	" 			},
 	" 			{
 	" 				'processor_id': 'userplain01',
 	" 				'categtype': 'plain',
 	"				'procflags': [],
 	" 				'sort_index': 2,
-	" 				"-? 'process_script_pre': 'userplain01_pre.vim',
 	" 				'files': [ 'file_p1.vim', 'file_p2.vim' ]
-	" 				'process_script_out': 'userplain01_out.vim',
+	" 				'processor_defs_data': {
+	" 						"-? 'process_script_pre': 'userplain01_pre.vim',
+	" 						'process_script_out': 'userplain01_out.vim',
+	" 					},
 	" 			},
 	" 			{
 	" 				'processor_id': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
@@ -1001,16 +1011,20 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	"				'procflags': [ 'file' ],
 	" 				'sort_index': 3,
 	" 				'files': [ 'file_f1.vim', 'file_f2.vim' ]
-	" 				'process_script_out': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
+	" 				'processor_defs_data': {
+	" 						'process_script_out': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
+	" 					},
 	" 			},
 	" 			{
 	" 				'processor_id': 'user01',
 	" 				'categtype': 'plain',
 	"				'procflags': [],
 	" 				'sort_index': 4,
-	" 				"-? 'process_script_pre': 'user01_pre.vim',
 	" 				'files': [ 'file_u1.vim', 'file_u2.vim' ]
-	" 				'process_script_out': 'user01_out.vim',
+	" 				'processor_defs_data': {
+	" 						"-? 'process_script_pre': 'user01_pre.vim',
+	" 						'process_script_out': 'user01_out.vim',
+	" 					},
 	" 			},
 	" 		]
 	let l:test_processors_groups_list = []
@@ -1270,7 +1284,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 						"  FIXME: and make that a folding group ("test info", etc.)
 						execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
 						" FIXME: use a wrapper for fnameescape() (put it in 'base.vim', and access it from here)
-						execute 'source ' . l:test_processors_groups_elem_now.process_script_out
+						execute 'source ' . l:test_processors_groups_elem_now.processor_defs_data.process_script_out
 					else
 						" FIXME: report that no test output was produced?
 					endif
