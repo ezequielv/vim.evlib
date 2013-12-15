@@ -45,12 +45,16 @@ call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_InitAndOpen', s:ev
 call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_Close', s:evlib_test_base_object.f_testoutput_close )
 " }}}
 
+" global/script-local variables {{{
+let s:evlib_test_local_evtest_main_subdir_name = 'evtest'
+" }}}
+
 " note: this used to be the "front-end" function
 function! s:EVLibTest_RunUtil_TestOutput_Process()
-	" FIXME: implement properly, or leave all of this to our caller (as we'll
-	"  probably need many variables in the context of our caller to determine
-	"  which script is to be "sourced" exactly)
-	call s:evlib_test_base_object.f_module_load( 'evtest/proc/evtstd/v0-1-0.vim' )
+	" NOTE: we now have deferred processing to a script associated to a group
+	"  of test files -- therefore, the need of merely "processing a
+	"  previously run test output buffer" is no longer /that/ strong ->
+	"  "no-op"-ing this now
 endfunction
 
 function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
@@ -63,54 +67,518 @@ function! s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( list, list_len_adjus
 	return l:ret_list
 endfunction
 
-function! s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( test_processors_groups_list, test_processors_groups_list_elem_commit )
-	" only consider a:test_processors_groups_list_elem_commit non-empty
-	"  when it has a non-empty files list
-	if ( has_key( a:test_processors_groups_list_elem_commit, 'files' ) ) && ( ! ( empty( a:test_processors_groups_list_elem_commit.files ) ) )
-		call add( a:test_processors_groups_list, deepcopy( a:test_processors_groups_list_elem_commit ) )
-	endif
-
-	" remove all entries in the user's dictionary
-	call filter( a:test_processors_groups_list_elem_commit, '0' )
-	" extend() it with our entries
-	call extend(
-			\		a:test_processors_groups_list_elem_commit,
-			\		deepcopy(
-			\				{
-			\					'categtype': 'unknown',
-			\					'sort_index': 9999,
-			\					'files': [],
-			\				},
-			\			)
-			\	)
-endfunction
-
-function! s:EVLibTest_RunUtil_Local_VersionListSortFun( l1, l2 )
-	let l:l1_len = len( a:l1 )
-	let l:l2_len = len( a:l2 )
-	let l:list_len_max = max( l1_len, l2_len )
-	let l:l1 = s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( a:l1, l:list_len_max )
-	let l:l2 = s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( a:l2, l:list_len_max )
-	for l:index_now in range( l:list_len_max ) " 0 .. len() - 1
-		let l:comp_result = l:l1[ l:index_now ] - l:l2[ l:index_now ]
-		if l:comp_result != 0
-			return l:comp_result
+" args:
+"  * procflag_find:
+"   * if it's a list, we will return true if all the elements have been found;
+"   * if it's a string, we will treat it as a list with only one element;
+function! s:EVLibTest_RunUtil_Local_ProcessorFlagsHas( procflags_list, procflag_find )
+	let l:procflag_find_list = ( ( type( a:procflag_find ) == type( '' ) ) ? [ a:procflag_find ] : a:procflag_find )
+	let l:found_all = !0 " true
+	for l:procflag_find_now in l:procflag_find_list
+		let l:found_all = l:found_all && ( index( a:procflags_list, l:procflag_find_now ) >= 0 )
+		if ( ! l:found_all )
+			break
 		endif
 	endfor
-	" they are equal if we never managed to find a difference
-	return 0
-endfunction
 
-function! s:EVLibTest_RunUtil_Local_ProcessorsToFilesMapDict_Versioned_SortFun( v1, v2 )
-	return s:EVLibTest_RunUtil_Local_VersionListSortFun( v1.version, v2.version )
+	return l:found_all
 endfunction
 
 function! s:EVLibTest_RunUtil_Local_SortFun_NormaliseCompResult( comp_result )
 	return ( ( a:comp_result == 0 ) ? 0 : ( ( a:comp_result > 0 ) ? 1 : -1 ) )
 endfunction
 
+function! s:EVLibTest_RunUtil_Local_VersionValues_Compare( l1, l2 )
+	let l:l1_len = len( a:l1 )
+	let l:l2_len = len( a:l2 )
+	let l:list_len_max = max( [ l1_len, l2_len ] )
+	let l:l1 = s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( a:l1, l:list_len_max )
+	let l:l2 = s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( a:l2, l:list_len_max )
+	for l:index_now in range( l:list_len_max ) " 0 .. len() - 1
+		let l:comp_result = l:l1[ l:index_now ] - l:l2[ l:index_now ]
+		if l:comp_result != 0
+			return s:EVLibTest_RunUtil_Local_SortFun_NormaliseCompResult( l:comp_result )
+		endif
+	endfor
+	" they are equal if we never managed to find a difference
+	return 0
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_VersionRange_ContainsValue( version_range, version_value )
+	return (
+			\		( s:EVLibTest_RunUtil_Local_VersionValues_Compare( a:version_range[ 0 ], a:version_value ) <= 0 )
+			\		&&
+			\		( s:EVLibTest_RunUtil_Local_VersionValues_Compare( a:version_value, a:version_range[ 1 ] ) <= 0 )
+			\	)
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_Gen_RangesIntersect( range1, range2, function_compare, function_contains_value )
+	let l:query_result = 0 " false
+	if ( ! l:query_result )
+		for l:stage in range( 1, 2 )
+			if l:stage == 1
+				" check if the maximum of the two 'range start' values is
+				"  contained in the other range
+				if ( a:function_compare( a:range1[ 0 ], a:range2[ 0 ] ) < 0 )
+					let l:range_check_value = a:range2[ 0 ]
+					let l:range_check_check = a:range1
+				else
+					let l:range_check_value = a:range1[ 0 ]
+					let l:range_check_check = a:range2
+				endif
+			elseif l:stage == 2
+				" check if the minimum of the two 'range end' values is
+				"  contained in the other range
+				if ( a:function_compare( a:range1[ 1 ], a:range2[ 1 ] ) < 0 )
+					let l:range_check_value = a:range1[ 1 ]
+					let l:range_check_check = a:range2
+				else
+					let l:range_check_value = a:range2[ 1 ]
+					let l:range_check_check = a:range1
+				endif
+			endif
+
+			let l:query_result = a:function_contains_value( l:range_check_check, l:range_check_value )
+
+			if ( l:query_result )
+				break
+			endif
+		endif
+	endif
+
+	return l:query_result
+endfunction
+
+" returns:
+"  < 0 : range1 contains range2 (for now, this is also reported when the ranges are equal);
+"  > 0 : range2 contains range1;
+"  == 0 : no containment;
+function! s:EVLibTest_RunUtil_Local_Gen_ReportRangeContainment( range1, range2, function_contains_value )
+	let l:query_result = 0 " no containment by default
+	if ( l:query_result == 0 )
+		for l:stage in range( 1, 2 )
+			if l:stage == 1
+				let l:range_check_contained = a:range2
+				let l:range_check_container = a:range1
+				let l:result_if_contained = -1
+			elseif l:stage == 2
+				let l:range_check_contained = a:range1
+				let l:range_check_container = a:range2
+				let l:result_if_contained = 1
+			endif
+
+			if	(
+					\		( a:function_contains_value( l:range_check_container, l:range_check_contained[ 0 ] ) )
+					\		&&
+					\		( a:function_contains_value( l:range_check_container, l:range_check_contained[ 1 ] ) )
+					\	)
+				let l:query_result = l:result_if_contained
+				break
+			endif
+		endif
+	endif
+
+	return l:query_result
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_VersionRange_Intersect( version_range1, version_range2 )
+	return s:EVLibTest_RunUtil_Local_Gen_RangesIntersect(
+				\		a:version_range1,
+				\		a:version_range2,
+				\		function( 's:EVLibTest_RunUtil_Local_VersionValues_Compare' ),
+				\		function( 's:EVLibTest_RunUtil_Local_VersionRange_ContainsValue' )
+				\	)
+endfunction
+
+" return value: see s:EVLibTest_RunUtil_Local_Gen_ReportRangeContainment()
+function! s:EVLibTest_RunUtil_Local_VersionRange_ReportContainment( version_range1, version_range2 )
+	return s:EVLibTest_RunUtil_Local_Gen_ReportRangeContainment(
+				\		a:version_range1,
+				\		a:version_range2,
+				\		function( 's:EVLibTest_RunUtil_Local_VersionRange_ContainsValue' )
+				\	)
+endfunction
+
+" args: 
+"  * test_processors_groups_list
+"  * test_processors_groups_list_elem_commit
+function! s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( test_processors_groups_list, test_processors_groups_list_elem_commit )
+	let l:success = !0 " true
+
+	" only consider a:test_processors_groups_list_elem_commit non-empty
+	"  when it has a non-empty files list
+	if ( l:success ) && ( has_key( a:test_processors_groups_list_elem_commit, 'files' ) ) && ( ! ( empty( a:test_processors_groups_list_elem_commit.files ) ) )
+		let l:processor_id = a:test_processors_groups_list_elem_commit.processor_id
+		if ( s:EVLibTest_RunUtil_Local_ProcessorFlagsHas( a:test_processors_groups_list_elem_commit.procflags, 'file' ) )
+			" copy the 'file' as the 'process_script_out'
+			let a:test_processors_groups_list_elem_commit.process_script_out = l:processor_id
+		else
+			" resolve the processor script, and write its value under the key 'process_script_out'
+
+			" prev: " FIXME: do this better -- for now, we'll force the only processor we've got for 'evtstd'
+			" prev: if l:processor_id == 'evtstd'
+			" prev: 	let a:test_processors_groups_list_elem_commit.process_script_out = s:evlib_test_base_object.c_testdir . '/' . 'evtest/proc/evtstd/v0-1-0.vim'
+			" prev: endif
+		endif
+		if ( !( has_key( a:test_processors_groups_list_elem_commit, 'process_script_out' ) ) )
+			" FIXME: throw an error: this should never happen
+			let l:success = 0 " false
+		endif
+		if l:success
+			call add( a:test_processors_groups_list, deepcopy( a:test_processors_groups_list_elem_commit ) )
+		endif
+	endif
+
+	" clear/init a:test_processors_groups_list_elem_commit {{{
+	if l:success
+		" remove all entries in the user's dictionary
+		call filter( a:test_processors_groups_list_elem_commit, '0' )
+		" extend() it with our entries
+		call extend(
+				\		a:test_processors_groups_list_elem_commit,
+				\		deepcopy(
+				\				{
+				\					'categtype': 'unknown',
+				\					'sort_index': 9999,
+				\					'files': [],
+				\				},
+				\			)
+				\	)
+	endif
+	" }}}
+
+	return l:success
+endfunction
+
+" args: 
+"  * test_processors_groups_list_elem_commit
+"  * test_processors_to_files_map_key_now
+"  * test_processors_to_files_map_elem_now
+"  * test_processors_to_files_map_elem_categkey_now
+"  * (if test_processors_to_files_map_elem_categkey_now == 'versioned') [ test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now ]
+function! s:EVLibTest_RunUtil_Local_ProcGroupsElemSetup_Common( test_processors_groups_list_elem_commit, test_processors_to_files_map_key_now, test_processors_to_files_map_elem_now, test_processors_to_files_map_elem_categkey_now, ... )
+	let l:success = !0 " true
+
+	let l:test_processors_groups_list_elem_commit = a:test_processors_groups_list_elem_commit
+	let l:test_processors_to_files_map_key_now = a:test_processors_to_files_map_key_now
+	let l:test_processors_to_files_map_elem_now = a:test_processors_to_files_map_elem_now
+	let l:test_processors_to_files_map_elem_categkey_now = a:test_processors_to_files_map_elem_categkey_now
+	if ( a:0 > 0 )
+		let l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now = a:1
+	endif
+
+	" clear/init l:test_processors_groups_list_elem_commit {{{
+	if ( l:success )
+		let l:process_flag = !0 " true
+
+		let l:test_processors_groups_list_elem_commit.processor_id = l:test_processors_to_files_map_key_now
+
+		if ( l:process_flag )
+			for l:dict_key_now in [
+						\		'sort_index',
+						\		'procflags',
+						\	]
+				let l:test_processors_groups_list_elem_commit[ l:dict_key_now ] = l:test_processors_to_files_map_elem_now[ l:dict_key_now ]
+			endfor
+		endif
+
+		if ( l:process_flag )
+			let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
+			let l:process_flag = l:process_flag && ( has_key( s:evlib_test_local_processors_defs_dict, l:test_processors_groups_list_elem_commit.processor_id ) )
+			if ( l:process_flag )
+				" find a processor entry in s:evlib_test_local_processors_defs_dict,
+				let l:processors_defs_dict_entry_main_now = s:evlib_test_local_processors_defs_dict[ l:test_processors_groups_list_elem_commit.processor_id ]
+				let l:process_flag = l:process_flag && ( l:test_processors_to_files_map_elem_categkey_now == l:processors_defs_dict_entry_main_now.categtype )
+				let l:processors_defs_dict_entry_leafentries_ref = {}
+			endif
+
+			if ( l:process_flag ) && ( l:test_processors_to_files_map_elem_categkey_now == 'versioned' )
+				" find the right (processor) version element for the
+				"  current entry being processed
+				for l:processors_defs_dict_entry_versionlist_entry_now in l:processors_defs_dict_entry_main_now.version_list
+					echomsg '[debug] l:processors_defs_dict_entry_versionlist_entry_now loop. l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now: ' . string( l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now )
+					if s:EVLibTest_RunUtil_Local_VersionRange_ContainsValue(
+								\		l:processors_defs_dict_entry_versionlist_entry_now.version_range,
+								\		l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version
+								\	)
+						let l:processors_defs_dict_entry_leafentries_ref = l:processors_defs_dict_entry_versionlist_entry_now
+						break
+					endif
+				endfor
+			elseif ( l:process_flag ) && ( l:test_processors_to_files_map_elem_categkey_now == 'plain' )
+				let l:processors_defs_dict_entry_leafentries_ref = l:processors_defs_dict_entry_main_now
+			endif
+			let l:process_flag = l:process_flag && ( ! empty( l:processors_defs_dict_entry_leafentries_ref ) )
+
+			if ( l:process_flag )
+				for l:dict_key_now in [
+							\		'process_script_out',
+							\	]
+					let l:test_processors_groups_list_elem_commit[ l:dict_key_now ] = l:processors_defs_dict_entry_leafentries_ref[ l:dict_key_now ]
+				endfor
+			endif
+		endif
+		" now, we will only report a success if we could "process" this
+		"  source entry successfully
+		let l:success = l:success && l:process_flag
+	endif
+	" }}}
+
+	return l:success
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_VersionListSortFun( l1, l2 )
+	return s:EVLibTest_RunUtil_Local_VersionValues_Compare( a:l1, a:l2 )
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_ProcessorsToFilesMapDict_Versioned_SortFun( v1, v2 )
+	return s:EVLibTest_RunUtil_Local_VersionListSortFun( v1.version, v2.version )
+endfunction
+
 function! s:EVLibTest_RunUtil_Local_ProcessorsGroupsList_SortFun( v1, v2 )
 	return s:EVLibTest_RunUtil_Local_SortFun_NormaliseCompResult( ( v1.sort_index - v2.sort_index ) )
+endfunction
+
+" data structures:
+" 	s:evlib_test_local_processors_defs_dict = {
+" 			'evtstd': {
+"					'categtype': 'versioned',
+"					'version_list': [
+"							{
+"								'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
+"								'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+"							},
+"							{
+"								'version_range': [ [ 1, 0, 0 ], [ 1, 4, 20 ] ],
+"								'process_script_out': 'evtest/proc/evtstd/v1-4-20.vim',
+"							},
+"						],
+" 				},
+" 			'userplain01': {
+" 					'categtype': 'plain',
+" 					'process_script_out': 'userplain01_out.vim',
+" 				},
+" 			'user01': {
+" 					'categtype': 'plain',
+" 					'process_script_out': 'user01_out.vim',
+" 				},
+" 		}
+
+" s:EVLibTest_RunUtil_Local_ProcessorDef_Add():
+"  * function to udpate s:evlib_test_local_processors_defs_dict from a source dict entry;
+"  * syntax: call s:EVLibTest_RunUtil_Local_ProcessorDef_Add( defs_dict_dst, defs_entry_data )
+"
+"  where a:defs_entry_data = {
+"  		'processor_id': ...,
+"  		'version_range': ...,
+"  		'process_script_out': ...,
+"  	}
+"  or a:defs_entry_data = {
+"  		'processor_id': ...,
+"  		" no 'version_range' means 'plain' in this context
+"  		'process_script_out': ...,
+"  	}
+"  	so the function will:
+"  	 * create parent dictionary entries (like a:defs_dict_dst.version_list);
+"  	 * validate that an entry is not simultaneously 'versioned' and 'plain';
+function! s:EVLibTest_RunUtil_Local_ProcessorDef_Add( defs_dict_dst, defs_entry_data )
+	let l:process_flag = !0 " true
+
+	let l:process_flag = l:process_flag && ( has_key( a:defs_entry_data, 'processor_id' ) )
+	echomsg '[debug] l:process_flag: ' . string( l:process_flag )
+	echomsg '[debug] a:defs_dict_dst: ' . string( a:defs_dict_dst )
+	if l:process_flag
+		let l:processor_id = a:defs_entry_data.processor_id
+		let l:src_entry_is_versioned = ( has_key( a:defs_entry_data, 'version_range' ) )
+		let l:src_categtype = ( l:src_entry_is_versioned ? 'versioned' : 'plain' )
+		let l:dst_entry_main_exists_flag = has_key( a:defs_dict_dst, l:processor_id )
+		let l:write_entry_flag = ( ! l:dst_entry_main_exists_flag )
+
+		if ( l:dst_entry_main_exists_flag )
+			let l:defs_dict_entry_now = a:defs_dict_dst[ l:processor_id ]
+		else
+			let a:defs_dict_dst[ l:processor_id ] = {
+						\		'categtype': l:src_categtype,
+						\	}
+			let l:defs_dict_entry_now = a:defs_dict_dst[ l:processor_id ]
+			if ( l:src_entry_is_versioned )
+				call extend( l:defs_dict_entry_now, {
+						\			'version_list': [],
+						\		}
+						\	)
+			endif
+		endif
+
+		" FIXME: validate that an entry is not simultaneously 'versioned' and 'plain';
+
+		if ( l:src_entry_is_versioned )
+			let l:processed_versioned_list = 0 " false
+			let l:src_versioned_version_range = a:defs_entry_data.version_range
+			let l:src_versioned_entry = {
+						\		'version_range': copy( l:src_versioned_version_range ),
+						\	}
+			for l:version_range_now in l:defs_dict_entry_now.version_list
+				" if there is an intersection with an existing one,
+				if ( s:EVLibTest_RunUtil_Local_VersionRange_Intersect( l:version_range_now.version_range, l:src_versioned_version_range ) )
+					" choose the best fit (only one per non-intersecting ranges)
+					let l:version_containment_now = ( s:EVLibTest_RunUtil_Local_VersionRange_ReportContainment( l:version_range_now.version_range, l:src_versioned_version_range ) )
+					" if the existing entry contains the range from the 'src' entry,
+					if ( l:version_containment_now < 0 )
+						" we do nothing: we will stop trying and also mark
+						"  that we will not write a dictionary entry
+						let l:write_entry_flag = 0 " false
+						" mark the versioned list element as processed,
+						"  so that we don't add an element for this range
+						let l:processed_versioned_list = !0 " true
+						break
+					" if the 'src' entry range contains the existing one,
+					elseif ( l:version_containment_now > 0 )
+						" we will replace the existing entry with the 'src' one.
+						" first, we will make the dictionary empty
+						call filter( l:version_range_now, '0' )
+						" then, we will extend the dictionary from our 'src' one
+						call extend( l:version_range_now, l:src_versioned_entry )
+						" we mark this entry as the one to be written to
+						let l:dst_entry_for_leaf_keys = l:version_range_now
+						" we make sure we will write to the above dictionary entry
+						let l:write_entry_flag = !0 " true
+						" mark the versioned list element as processed,
+						"  so that we don't add an element for this range
+						let l:processed_versioned_list = !0 " true
+						break
+					" if there is no containment,
+					else
+						" for now, we keep going
+						" (there will be intersecting entries then, but no
+						" containment)
+					endif
+				endif
+			endfor
+			" if no intersecting entries were found,
+			if ( ! l:processed_versioned_list )
+				" add this entry as the best fit (to the end)
+				call add( l:defs_dict_entry_now.version_list, l:src_versioned_entry )
+				" we will write to the element we've just added (at the end)
+				let l:dst_entry_for_leaf_keys = l:defs_dict_entry_now.version_list[ -1 ]
+				let l:write_entry_flag = !0 " true
+			endif
+		else
+			let l:dst_entry_for_leaf_keys = l:defs_dict_entry_now
+		endif
+
+		" write the "leaf" key values
+		if ( l:write_entry_flag )
+			for l:dict_key_now in [
+						\		'process_script_out',
+						\	]
+				let l:dst_entry_for_leaf_keys[ l:dict_key_now ] = a:defs_entry_data[ l:dict_key_now ]
+			endfor
+		endif
+	endif
+
+	return l:process_flag
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_PopulateProcessorDefs( test_files )
+	unlet! s:evlib_test_local_processors_defs_dict
+	let s:evlib_test_local_processors_defs_dict = {}
+
+	" key: dir (path)
+	let l:test_dirs_data = {}
+
+	" take all the files (a:test_files) and extract directory names,
+	"  then build a comprehensive list of 'directories'/'parent directories'
+	"  to find 'processors' in
+	let l:test_dirs = []
+	" add default entry(/ies)
+	call add( l:test_dirs, s:evlib_test_base_object.c_testdir )
+	" add entries from test files
+	for l:test_file_now in a:test_files
+		let l:test_dir_now = fnamemodify( l:test_file_now, ':p:h' )
+		call add( l:test_dirs, l:test_dir_now )
+	endfor
+
+	echomsg '[debug] l:test_dirs: ' . string( l:test_dirs )
+	for l:test_dir_now in l:test_dirs
+		if ( ! has_key( l:test_dirs_data, l:test_dir_now ) )
+			" for now, we mark the directory as 'processed' early
+			let l:test_dirs_data[ l:test_dir_now ] = !0 " true
+			" process directory
+			for l:scan_dir_parent1 in [
+						\		s:evlib_test_local_evtest_main_subdir_name . '/proc'
+						\	]
+				for l:scanned_dir_now in filter( split( glob( l:test_dir_now . '/' . l:scan_dir_parent1 . '/[a-zA-Z]*' ) ), 'isdirectory(v:val)' )
+					echomsg '[debug] processing directory: ' . string( l:scanned_dir_now )
+					" now we've got a directory name under a semantically
+					"  meaningful parent. the 'leaf' is the processor_id
+					let l:processor_id = fnamemodify( l:scanned_dir_now, ':t' )
+					"? let l:processor_dir_now = fnamemodify( l:scanned_dir_now, ':h' )
+					for l:stage in range( 1, 2 )
+						if l:stage == 1
+							for l:processor_file_now in filter( split( glob( l:scanned_dir_now . '/v[0-9]*.vim' ) ), 'filereadable(v:val)' )
+								try
+									echomsg '[debug]  processing file: ' . string( l:processor_file_now )
+									let l:version_from_file_string = fnamemodify( l:processor_file_now, ':t:r' )
+									let l:regex_processor_file_versioned_vnumber_extractnumber = '\v^v([0-9]-[0-9][0-9-]*)$'
+
+									" validate that the name matches a regex
+									"  (to avoid generating invalid version
+									"  values)
+									if ( !( match( l:version_from_file_string, l:regex_processor_file_versioned_vnumber_extractnumber ) >= 0 ) )
+										" file name did not match
+										continue
+									endif
+									" extract only the parts we're interested
+									"  in (remove the initial 'v', etc)
+									let l:version_from_file_string = substitute( l:version_from_file_string, l:regex_processor_file_versioned_vnumber_extractnumber, '\1', '' )
+
+									let l:version_from_file_list = split( l:version_from_file_string, '[-_]' )
+
+									" if, for whatever reason, we could not
+									"  find a proper version, skip this
+									"  file
+									if ( !( len( l:version_from_file_list ) > 1 ) )
+										continue
+									endif
+
+									" transform each component into a number
+									" TODO: put this into a function, so other
+									"  conversions/transformations can do
+									"  this, too
+									let l:version_from_file_list = map( l:version_from_file_list, 'v:val + 0' )
+
+									" make the start version one with the same
+									"  major version, but from the first
+									"  available minor version for that major
+									"  version ('x.0.0')
+									" prev: let l:version_range_start = copy( l:version_from_file_list )
+									" prev: " note: assigning to an inexisting list index seems to be an operation without side effects
+									" prev: let l:version_range_start[ 1 ] = 0
+									" prev: let l:version_range_start[ 2 ] = 0
+									let l:version_range_start = [ l:version_from_file_list[ 0 ], 0, 0 ]
+
+									echomsg '[debug]   about to add processor_defs element with version: ' . string( l:version_from_file_list )
+									call s:EVLibTest_RunUtil_Local_ProcessorDef_Add(
+												\		s:evlib_test_local_processors_defs_dict,
+												\		{	'processor_id': l:processor_id,
+												\			'version_range': [ l:version_range_start, l:version_from_file_list ],
+												\			'process_script_out': l:processor_file_now,
+												\		}
+												\	)
+								" LATER: catch " catch all exceptions
+									" MAYBE: report the dodgy filename to the user
+								endtry
+							endfor
+						elseif l:stage == 2
+						endif
+					endfor
+				endfor
+				" FIXME: also find 'plain' processors directly under l:scan_dir_parent1
+			endfor
+		endif
+	endfor
+	unlet l:test_dirs
+
 endfunction
 
 function! EVLibTest_RunUtil_Command_RunTests( ... )
@@ -236,9 +704,14 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			"  expressions are not skipped (we want the empty lines)
 			echo ( ( ! empty( l:help_line_now ) ) ? l:help_line_now : ' ' )
 		endfor
-		" no_need_now: return 0
 	endif
 	" }}}
+	" }}}
+
+	" bail out now if there is nothing more for this function to do at this point {{{
+	if ! l:process_flag
+		return 0
+	endif
 	" }}}
 
 	" organise the test files (l:test_files) into groups {{{
@@ -495,59 +968,66 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	echomsg '[debug] l:test_processors_to_files_map: ' . string( l:test_processors_to_files_map )
 	" }}}
 
+	" populate the list of "processors" accessible/related to the test files being considered {{{
+	" note: sets s:evlib_test_local_processors_defs_dict
+	call s:EVLibTest_RunUtil_Local_PopulateProcessorDefs( l:test_files )
+	" }}}
+
 	" for each group, find its "processor" and other related data {{{
 	" data structures:
 	" 	l:test_processors_groups_list = [
 	" 			{
-	" 				'name': 'evtstd',
+	" 				'processor_id': 'evtstd',
 	" 				'categtype': 'versioned',
 	"				'procflags': [],
-	" 				'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
+	" 				"-? 'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
 	" 				'sort_index': 1,
-	" 				'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
+	" 				"-? 'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
 	" 				'files': [ 'file1.vim', 'file2.vim', 'file3.vim' ]
 	" 				'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
 	" 			},
 	" 			{
-	" 				'name': 'userplain01',
+	" 				'processor_id': 'userplain01',
 	" 				'categtype': 'plain',
 	"				'procflags': [],
 	" 				'sort_index': 2,
-	" 				'process_script_pre': 'userplain01_pre.vim',
+	" 				"-? 'process_script_pre': 'userplain01_pre.vim',
 	" 				'files': [ 'file_p1.vim', 'file_p2.vim' ]
 	" 				'process_script_out': 'userplain01_out.vim',
 	" 			},
 	" 			{
-	" 				'name': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
+	" 				'processor_id': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
 	" 				'categtype': 'plain',
 	"				'procflags': [ 'file' ],
 	" 				'sort_index': 3,
 	" 				'files': [ 'file_f1.vim', 'file_f2.vim' ]
+	" 				'process_script_out': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
 	" 			},
 	" 			{
-	" 				'name': 'user01',
+	" 				'processor_id': 'user01',
 	" 				'categtype': 'plain',
 	"				'procflags': [],
 	" 				'sort_index': 4,
-	" 				'process_script_pre': 'user01_pre.vim',
+	" 				"-? 'process_script_pre': 'user01_pre.vim',
 	" 				'files': [ 'file_u1.vim', 'file_u2.vim' ]
 	" 				'process_script_out': 'user01_out.vim',
 	" 			},
 	" 		]
 	let l:test_processors_groups_list = []
 	"? let l:test_processors_to_files_map_key_last = ''
+	" NOTE: the division is entirely based on which processor will take it:
+	"  if the processor entry is different than the one used for previous
+	"  entries, then we will do this 'add + initialise next' bit
 	for l:test_processors_to_files_map_key_now in keys( l:test_processors_to_files_map )
 		let l:test_processors_groups_list_elem_commit = {} " empty by default (empty() will be used to detect pending commits)
 		let l:test_processors_to_files_map_elem_now = l:test_processors_to_files_map[ l:test_processors_to_files_map_key_now ]
-		let l:test_processors_to_files_map_elem_sortindex_now = l:test_processors_to_files_map_elem_now.sort_index
-		let l:test_processors_to_files_map_elem_procflags_now = l:test_processors_to_files_map_elem_now.procflags
+		let l:processor_id_now = l:test_processors_to_files_map_key_now
 		for l:test_processors_to_files_map_elem_categkey_now in [ 'versioned', 'plain' ]
 			" conditionally add pending "groups list" element
-			call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
-			let l:test_processors_groups_list_elem_commit.name = l:test_processors_to_files_map_key_now
-			let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
-			let l:test_processors_groups_list_elem_commit.sort_index = l:test_processors_to_files_map_elem_sortindex_now
-			let l:test_processors_groups_list_elem_commit.procflags = l:test_processors_to_files_map_elem_procflags_now
+			call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem(
+						\		l:test_processors_groups_list,
+						\		l:test_processors_groups_list_elem_commit
+						\	)
 
 			" skip non-existing dictionary entries
 			if ( ! has_key( l:test_processors_to_files_map_elem_now, l:test_processors_to_files_map_elem_categkey_now ) )
@@ -564,31 +1044,91 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			if l:test_processors_to_files_map_elem_categkey_now == 'versioned'
 				" sort the elements in the 'versioned' list (custom sort order)
 				call sort( l:test_processors_to_files_map_elem_categ_elem_now, function( 's:EVLibTest_RunUtil_Local_ProcessorsToFilesMapDict_Versioned_SortFun' ) )
-				let l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_last_version_list = [ 0, 0 ]
+				let l:processors_defs_dict_entry_versionlist_entry_version_range_current = []
+
 				for l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now in l:test_processors_to_files_map_elem_categ_elem_now
-					if l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version[ 0 ] != l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_last_version_list[ 0 ]
-						call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
-						let l:test_processors_groups_list_elem_commit.name = l:test_processors_to_files_map_key_now
-						let l:test_processors_groups_list_elem_commit.categtype = l:test_processors_to_files_map_elem_categkey_now
-						let l:test_processors_groups_list_elem_commit.sort_index = l:test_processors_to_files_map_elem_sortindex_now
-						let l:test_processors_groups_list_elem_commit.procflags = l:test_processors_to_files_map_elem_procflags_now
-						" NOTE: done in invoked function: let l:test_processors_groups_list_elem_commit.files = []
-						echomsg '[debug] detected major version change. added versioned files up to this point.'
+					let l:process_create_new_elem_flag = ( empty( l:processors_defs_dict_entry_versionlist_entry_version_range_current ) )
+					" if we have not decided to create a new element yet,
+					if ( ! l:process_create_new_elem_flag )
+						" check whether the current element can be processed
+						"  by the processor that is associated to the list
+						"  element to be committed
+						"  (whose range is cached in
+						"  l:processors_defs_dict_entry_versionlist_entry_version_range_current)
+						if s:EVLibTest_RunUtil_Local_VersionRange_ContainsValue(
+									\		l:processors_defs_dict_entry_versionlist_entry_version_range_current,
+									\		l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version
+									\	)
+							" we will not do anything here, as we will
+							"  add the files to the element that will be committed
+							"  below
+						else
+							" set flag so that we add a new element
+							let l:process_create_new_elem_flag = !0 " true
+						endif
+					endif
+					if ( l:process_create_new_elem_flag )
+						" add the pending element, if there was one
+						call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem(
+									\		l:test_processors_groups_list,
+									\		l:test_processors_groups_list_elem_commit
+									\	)
+
+						" find the right version element for the current entry
+						"  being processed
+						echomsg '[debug] s:evlib_test_local_processors_defs_dict: ' . string( s:evlib_test_local_processors_defs_dict )
+						echomsg '[debug] l:processor_id_now: ' . string( l:processor_id_now )
+						let l:processors_defs_dict_entry_main_now = s:evlib_test_local_processors_defs_dict[ l:processor_id_now ]
+
+						"- let l:processors_defs_dict_entry_leafentries_ref = {}
+						let l:process_found_processors_defs_dict_entry_for_this_version_flag = 0 " false
+						for l:processors_defs_dict_entry_versionlist_entry_now in l:processors_defs_dict_entry_main_now.version_list
+							if s:EVLibTest_RunUtil_Local_VersionRange_ContainsValue(
+										\		l:processors_defs_dict_entry_versionlist_entry_now.version_range,
+										\		l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version
+										\	)
+								"- let l:processors_defs_dict_entry_leafentries_ref = l:processors_defs_dict_entry_versionlist_entry_now
+								let l:process_found_processors_defs_dict_entry_for_this_version_flag = !0 " true
+								" cache the range associated to our 'processor'
+								let l:processors_defs_dict_entry_versionlist_entry_version_range_current = l:processors_defs_dict_entry_versionlist_entry_now.version_range
+								break
+							endif
+						endfor
+						"- prev: used: ( ! empty( l:processors_defs_dict_entry_leafentries_ref ) )
+						if ( l:process_found_processors_defs_dict_entry_for_this_version_flag )
+							"- prev: \		l:processors_defs_dict_entry_leafentries_ref
+							call s:EVLibTest_RunUtil_Local_ProcGroupsElemSetup_Common(
+										\		l:test_processors_groups_list_elem_commit,
+										\		l:test_processors_to_files_map_key_now,
+										\		l:test_processors_to_files_map_elem_now,
+										\		l:test_processors_to_files_map_elem_categkey_now,
+										\		l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now
+										\	)
+						else
+							" FIXME: error: we could not find a processor for
+							"  this version value
+						endif
 					endif
 
-					" FIXME: add the current element data to our l:test_processors_groups_list_elem_commit variable
+					" TODO: CHECK_AND_MAYBEDO: add the current element data to our l:test_processors_groups_list_elem_commit variable
 					"  ref: l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version -> 'version_range'
+					" add the files to the element that will be committed
 					call extend( l:test_processors_groups_list_elem_commit.files, l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.files )
-
-					" save our "last" version list for next iteration's
-					"  comparison
-					let l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_last_version_list = l:test_processors_to_files_map_elem_categ_elem_now_versioned_elem_now.version
 				endfor
 				" FIXME: process each element in the 'version' dictionary entry (list)
 				" FIXME: when an incompatible version transition has been
 				"  found, call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem()
 			elseif l:test_processors_to_files_map_elem_categkey_now == 'plain'
+				call s:EVLibTest_RunUtil_Local_ProcGroupsElemSetup_Common(
+							\		l:test_processors_groups_list_elem_commit,
+							\		l:test_processors_to_files_map_key_now,
+							\		l:test_processors_to_files_map_elem_now,
+							\		l:test_processors_to_files_map_elem_categkey_now
+							\	)
+
+				" add the files from 'plain' to our '.files'
 				call extend( l:test_processors_groups_list_elem_commit.files, l:test_processors_to_files_map_elem_categ_elem_now )
+
 				" leave to code outside this loop (or next iteration inside
 				"  this loop) to actually add this element
 				echomsg '[debug] added plain files'
@@ -597,18 +1137,19 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			endif
 		endfor
 		" conditionally add pending "groups list" element
-		call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( l:test_processors_groups_list, l:test_processors_groups_list_elem_commit )
+		call s:EVLibTest_RunUtil_Local_ProcGroupsAddElem(
+					\		l:test_processors_groups_list,
+					\		l:test_processors_groups_list_elem_commit
+					\	)
 	endfor
 	call sort( l:test_processors_groups_list, function( 's:EVLibTest_RunUtil_Local_ProcessorsGroupsList_SortFun' ) )
 	echomsg '[debug] l:test_processors_groups_list: ' . string( l:test_processors_groups_list )
+	unlet l:test_processors_to_files_map
 	" }}}
 
 	" pre-test run initialisations {{{
 	" FIXME: load variables for: editor executable, parameters, etc.
 	" }}}
-	" FIXME: create an outer loop to iterate through elements of this type:
-	"  { 'test_files': LIST_TEST_FILES, 'proc': PROCESSOR_SCRIPT }
-	"   (NOTE: we could add more elements)
 	" FIXME: but be careful with externally-specified "redir file"
 	"  (l:test_output_file): maybe just use it for the first of these groups
 	"  (which would work nicely when there is a single group)
@@ -620,108 +1161,122 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 		try
 			let l:test_output_init_flag = 0 " false
 			let l:test_output_redir_active_flag = 0 " false
-			" run all tests for each (vim) program {{{
-			for l:program_now in l:programs_list
-				" one-time initialisations {{{
-				if ( ! l:test_output_init_flag )
-					let l:test_output_file = s:EVLibTest_TestOutput_OptionalGetRedirFilename()
-					if ( empty( l:test_output_file ) )
-						" create a temporary file
-						let l:test_output_file = tempname()
-						let l:test_output_file_temp_flag = !0 " true
-					endif
-					let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
-					if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
-						" FIXME: report the error in a way that would be
-						"  picked up by our caller (exception?)
-						break " FIXME: see comment above
-					endif
-					let l:test_output_init_flag = !0 " true
-				endif
-				" }}}
+			" process all "grouped" test files {{{
+			for l:test_processors_groups_elem_now in l:test_processors_groups_list
+				try
+					" run all tests for each (vim) program {{{
+					for l:program_now in l:programs_list
+						" one-time initialisations {{{
+						if ( ! l:test_output_init_flag )
+							let l:test_output_file = s:EVLibTest_TestOutput_OptionalGetRedirFilename()
+							if ( empty( l:test_output_file ) )
+								" create a temporary file
+								let l:test_output_file = tempname()
+								let l:test_output_file_temp_flag = !0 " true
+							endif
+							let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
+							if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
+								" FIXME: report the error in a way that would be
+								"  picked up by our caller (exception?)
+								break " FIXME: see comment above
+							endif
+							let l:test_output_init_flag = !0 " true
+						endif
+						" }}}
 
-				" per-program initialisation {{{
-				" FIXME: start the program directly, not through 'env'
-				"  FIXME: add support for specifying a variable *before* our vimrc gets
-				"   loaded
-				"  FIXME: maybe load it through something else (not '-u'): '-c "let VAR | source TESTFILE"'
-				let l:progoptions_pref_list = [
-						\		'env',
-						\		'EVLIB_VIM_TEST_OUTPUTFILE=' . l:test_output_file,
-						\		l:program_now, '-f',
-						\		'-e',
-						\		'--noplugin',
-						\		'-U', 'NONE',
-						\		'-u',
-						\	]
-				" NOTE: option for specifying script to run: '-u "${l_getresults_file_now}"'
-				" NOTE: executing vim/gvim uses stdout/stderr, and it can
-				"  be quite slow (especially under the GUI)
-				"  FIXME: do this per-platform, etc.
-				"  FIXME: these redirections made vim pop up a message box
-				"   (even more disruptive)
-				"-?		\		'>' , '/dev/null',
-				"-?		\		'2>' , '/dev/null',
-				let l:progoptions_suff_list = [
-						\		'+q',
-						\	]
-				let l:progoptions_pref_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_pref_list )
-				let l:progoptions_suff_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_suff_list )
-				" }}}
+						" per-program initialisation {{{
+						" FIXME: start the program directly, not through 'env'
+						"  FIXME: add support for specifying a variable *before* our vimrc gets
+						"   loaded
+						"  FIXME: maybe load it through something else (not '-u'): '-c "let VAR | source TESTFILE"'
+						let l:progoptions_pref_list = [
+								\		'env',
+								\		'EVLIB_VIM_TEST_OUTPUTFILE=' . l:test_output_file,
+								\		l:program_now, '-f',
+								\		'-e',
+								\		'--noplugin',
+								\		'-U', 'NONE',
+								\		'-u',
+								\	]
+						" NOTE: option for specifying script to run: '-u "${l_getresults_file_now}"'
+						" NOTE: executing vim/gvim uses stdout/stderr, and it can
+						"  be quite slow (especially under the GUI)
+						"  FIXME: do this per-platform, etc.
+						"  FIXME: these redirections made vim pop up a message box
+						"   (even more disruptive)
+						"-?		\		'>' , '/dev/null',
+						"-?		\		'2>' , '/dev/null',
+						let l:progoptions_suff_list = [
+								\		'+q',
+								\	]
+						let l:progoptions_pref_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_pref_list )
+						let l:progoptions_suff_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_suff_list )
+						" }}}
 
-				" FIXME: write information about the (vim) program currently being used
+						" FIXME: write information about the (vim) program currently being used
 
-				" run all tests {{{
-				for l:test_file_now in l:test_files
-					" validate current file {{{
-					if ( ! filereadable( l:test_file_now ) )
-						" FIXME: report the error in l:test_output_file in a way that
-						"  will be picked up by s:EVLibTest_RunUtil_TestOutput_Process()
+						" run all tests {{{
+						for l:test_file_now in l:test_processors_groups_elem_now.files
+							" validate current file {{{
+							if ( ! filereadable( l:test_file_now ) )
+								" FIXME: report the error in l:test_output_file in a way that
+								"  will be picked up by s:EVLibTest_RunUtil_TestOutput_Process()
 
-						" do not process this file
-						continue
+								" do not process this file
+								continue
+							endif
+							" }}}
+							" run vim with the right parameters {{{
+							try
+								" FIXME: write information about the test to be run here
+
+								" FIXME: stop redirection here
+
+								" FIXME: execute the commands silently (':h :silent'),
+								"  and display "friendly" messages instead
+								execute '! '
+										\	.	l:progoptions_pref_string
+										\	.	' '
+										\	.	s:EVLibTest_RunUtil_Util_JoinCmdArgs( [ l:test_file_now ] )
+										\	.	' '
+										\	.	l:progoptions_suff_string
+								execute '! ls -l ' . l:test_output_file
+							catch " all exceptions
+								" FIXME: record an error string if the test failed (do it in a way
+								"  that will be shown to the user appropriately
+							finally
+								" FIXME: re-enable redirection here
+							endtry
+							" }}}
+						endfor
+						" }}}
+					endfor
+					" }}}
+					" process the temporary file {{{
+					if filereadable( l:test_output_file )
+						" split/create tab, set new buffer attributes
+						execute 'tab sview ' . l:test_output_file
+						setlocal buftype=nofile noswapfile
+						" if we have to (temporary file: always, user file:
+						"  when?), truncate/delete the file, or make sure that the
+						"  next invocation/use will overwrite the file, as opposed
+						"  to append to it
+						if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )
+							call delete( l:test_output_file ) " ignore rc for now
+						endif
+						" done: make this better (or use a timestamp, etc.)
+						" IDEA: put all the filenames that the test had at the beginning,
+						"  for example (with one of those 'INFO:' lines?)
+						"  FIXME: and make that a folding group ("test info", etc.)
+						execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
+						" FIXME: use a wrapper for fnameescape() (put it in 'base.vim', and access it from here)
+						execute 'source ' . l:test_processors_groups_elem_now.process_script_out
+					else
+						" FIXME: report that no test output was produced?
 					endif
 					" }}}
-					" run vim with the right parameters {{{
-					try
-						" FIXME: write information about the test to be run here
-
-						" FIXME: stop redirection here
-
-						" FIXME: execute the commands silently (':h :silent'),
-						"  and display "friendly" messages instead
-						execute '! '
-								\	.	l:progoptions_pref_string
-								\	.	' '
-								\	.	s:EVLibTest_RunUtil_Util_JoinCmdArgs( [ l:test_file_now ] )
-								\	.	' '
-								\	.	l:progoptions_suff_string
-						execute '! ls -l ' . l:test_output_file
-					catch " all exceptions
-						" FIXME: record an error string if the test failed (do it in a way
-						"  that will be shown to the user appropriately
-					finally
-						" FIXME: re-enable redirection here
-					endtry
-					" }}}
-				endfor
-				" }}}
+				endtry
 			endfor
-			" }}}
-			" process the temporary file {{{
-			if filereadable( l:test_output_file )
-				" split/create tab, set new buffer attributes
-				execute 'tab sview ' . l:test_output_file
-				setlocal buftype=nofile noswapfile
-				" done: make this better (or use a timestamp, etc.)
-				" IDEA: put all the filenames that the test had at the beginning,
-				"  for example (with one of those 'INFO:' lines?)
-				"  FIXME: and make that a folding group ("test info", etc.)
-				execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
-				call s:EVLibTest_RunUtil_TestOutput_Process()
-			else
-				" FIXME: report that no test output was produced?
-			endif
 			" }}}
 		" IDEA: to avoid doing the 'catch': just set a flag at the end of the
 		"  'good' code block, and detect that in the 'finally' block, below
@@ -735,7 +1290,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				let l:test_output_redirecting_flag = 0 " false
 			endif
 			if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )
-				call delete ( l:test_output_file ) " ignore rc for now
+				call delete( l:test_output_file ) " ignore rc for now
 			endif
 		endtry
 	endif
