@@ -1173,11 +1173,40 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 		let l:test_output_file_temp_flag = 0 " false
 		let l:test_output_redirecting_flag = 0 " false
 		try
+			" scoped variable(s) initialisation {{{
 			let l:test_output_init_flag = 0 " false
 			let l:test_output_redir_active_flag = 0 " false
+			let l:test_processing_use_tabs = !0 " true
+			" }}}
 			" process all "grouped" test files {{{
 			for l:test_processors_groups_elem_now in l:test_processors_groups_list
+				" scoped variable(s) initialisation {{{
+				let l:test_processing_current_savedstate = {}
+				if l:test_processing_use_tabs
+					call extend( l:test_processing_current_savedstate,
+								\		{
+								\			'prevtabpage': tabpagenr(),
+								\		}
+								\	)
+				endif
+
+				let l:test_processing_createdbuffer_flag = 0 " false
+				" }}}
 				try
+					" per-processor initialisation {{{
+					if l:test_processing_use_tabs
+						" create new tab (with new buffer)
+						tabedit
+					endif
+					let l:test_processing_createdbuffer_flag = !0 " true
+					setlocal buftype=nofile noswapfile
+					let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
+					" done: make this better (or use a timestamp, etc.)
+					" IDEA: put all the filenames that the test had at the beginning,
+					"  for example (with one of those 'INFO:' lines?)
+					"  FIXME: and make that a folding group ("test info", etc.)
+					execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
+					" }}}
 					" run all tests for each (vim) program {{{
 					for l:program_now in l:programs_list
 						" one-time initialisations {{{
@@ -1188,7 +1217,6 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 								let l:test_output_file = tempname()
 								let l:test_output_file_temp_flag = !0 " true
 							endif
-							let g:evlib_test_runtest_id = ( exists( 'g:evlib_test_runtest_id' ) ? ( g:evlib_test_runtest_id ) : 0 ) + 1
 							if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
 								" FIXME: report the error in a way that would be
 								"  picked up by our caller (exception?)
@@ -1262,6 +1290,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 								" FIXME: re-enable redirection here
 							endtry
 							" }}}
+							" [debug]: throw '[debug] oops'
 						endfor
 						" }}}
 					endfor
@@ -1269,8 +1298,10 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" process the temporary file {{{
 					if filereadable( l:test_output_file )
 						" split/create tab, set new buffer attributes
-						execute 'tab sview ' . l:test_output_file
-						setlocal buftype=nofile noswapfile
+						execute '0r ' . l:test_output_file
+						" remove the last line (which should be empty), which
+						"  should belong to the original "clean" buffer
+						$d
 						" if we have to (temporary file: always, user file:
 						"  when?), truncate/delete the file, or make sure that the
 						"  next invocation/use will overwrite the file, as opposed
@@ -1278,17 +1309,38 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 						if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )
 							call delete( l:test_output_file ) " ignore rc for now
 						endif
-						" done: make this better (or use a timestamp, etc.)
-						" IDEA: put all the filenames that the test had at the beginning,
-						"  for example (with one of those 'INFO:' lines?)
-						"  FIXME: and make that a folding group ("test info", etc.)
-						execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
 						" FIXME: use a wrapper for fnameescape() (put it in 'base.vim', and access it from here)
 						execute 'source ' . l:test_processors_groups_elem_now.processor_defs_data.process_script_out
 					else
 						" FIXME: report that no test output was produced?
 					endif
 					" }}}
+				catch " all exceptions
+					let l:test_processing_restore_previous_state_flag = 0 " false
+
+					" TODO: put this in a function (and possibly remove the
+					"  dependency on '+byte_offset')
+					if has( 'byte_offset' )
+						" this needs the '+byte_offset' feature (see ':h line2byte()')
+						let l:output_buffer_is_empty = ( byte2line( line('$') + 1 ) <= 1 )
+					else
+						let l:output_buffer_is_empty = ( ( line('$') == 1 ) && ( match( getline( line('$') ), '^\s*$' ) >= 0 ) )
+					endif
+
+					" for now, if the output buffer is empty, we will restore
+					"  the previous state
+					let l:test_processing_restore_previous_state_flag = l:test_processing_restore_previous_state_flag || ( l:output_buffer_is_empty )
+					if l:test_processing_restore_previous_state_flag
+						if l:output_buffer_is_empty
+							bdelete " remove current buffer
+						endif
+						" restore previous tab page when it makes sense to do
+						"  so
+						if ( has_key( l:test_processing_current_savedstate, 'prevtabpage' ) )
+									\	&& ( tabpagenr() != l:test_processing_current_savedstate.prevtabpage )
+							execute 'tabnext ' . l:test_processing_current_savedstate.prevtabpage
+						endif
+					endif
 				endtry
 			endfor
 			" }}}
