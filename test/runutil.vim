@@ -1,4 +1,19 @@
 " test/runutil.vim
+"
+" needs/includes:
+"  * 'source test/base.vim'
+"
+" output:
+"  * overwrites previous functions ('s:'-scoped);
+"  * defines the ex command 'EVTestRunFiles';
+"
+" side effects:
+"  * "normal" inclusion control global variables (get/set);
+"  * because it includes '.../test/base.vim' (see above), it overwrites the
+"     previous value (if it exists) of g:evlib_test_base_object_last
+"     (and see in that file which others get affected, too)
+"  * TODO: fill this section
+"
 
 " boiler plate -- prolog {{{
 

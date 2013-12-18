@@ -1,4 +1,15 @@
 " test/evtest/proc/evtstd/c-defs.vim
+"
+" needs/includes:
+"  * nothing ("root" file);
+"
+" output:
+"  * instanciates a new variable g:evlib_test_evtest_evtstd_base_object_last
+"
+" side effects:
+"  * other than the global variable that is set on output, it should have no
+"     other side effects of its own;
+"
 
 " boiler plate -- prolog {{{
 

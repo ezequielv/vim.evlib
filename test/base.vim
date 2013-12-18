@@ -1,4 +1,18 @@
 " test/base.vim
+"
+" needs/includes:
+"  * call s:EVLibTest_Module_Load( 'evtest/proc/evtstd/c-defs.vim' );
+"
+" output:
+"  * instanciates a new variable g:evlib_test_base_object_last;
+"
+" side effects:
+"  * other than the global variable that is set on output, it should have no
+"     other side effects of its own;
+"  * because it includes '.../evtstd/c-defs.vim' (see above), it overwrites
+"     the previous value (if it exists) of
+"     g:evlib_test_evtest_evtstd_base_object_last
+"
 
 " boiler plate -- prolog {{{
 
