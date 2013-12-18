@@ -1193,7 +1193,31 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				let l:test_processing_createdbuffer_flag = 0 " false
 				" }}}
 				try
+					" one-time initialisations {{{
+					if ( ! l:test_output_init_flag )
+						let l:test_output_file = s:EVLibTest_TestOutput_OptionalGetRedirFilename()
+						if ( empty( l:test_output_file ) )
+							" create a temporary file
+							let l:test_output_file = tempname()
+							let l:test_output_file_temp_flag = !0 " true
+						endif
+						if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
+							" FIXME: report the error in a way that would be
+							"  picked up by our caller (exception?)
+							break " FIXME: see comment above
+						endif
+						let l:test_output_init_flag = !0 " true
+					endif
+					" }}}
+
 					" per-processor initialisation {{{
+					" FIXME: truncate l:test_output_file before starting to
+					"  process this test file group
+					"  NOTE: we could call EVLibTest_TestOutput_InitAndOpen()
+					"   with redir_overwrite_flag == true;
+					"  NOTE: we could call EVLibTest_TestOutput_Reopen()
+					"   with redir_overwrite_flag == true;
+
 					if l:test_processing_use_tabs
 						" create new tab (with new buffer)
 						tabedit
@@ -1209,23 +1233,6 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" }}}
 					" run all tests for each (vim) program {{{
 					for l:program_now in l:programs_list
-						" one-time initialisations {{{
-						if ( ! l:test_output_init_flag )
-							let l:test_output_file = s:EVLibTest_TestOutput_OptionalGetRedirFilename()
-							if ( empty( l:test_output_file ) )
-								" create a temporary file
-								let l:test_output_file = tempname()
-								let l:test_output_file_temp_flag = !0 " true
-							endif
-							if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
-								" FIXME: report the error in a way that would be
-								"  picked up by our caller (exception?)
-								break " FIXME: see comment above
-							endif
-							let l:test_output_init_flag = !0 " true
-						endif
-						" }}}
-
 						" per-program initialisation {{{
 						" FIXME: start the program directly, not through 'env'
 						"  FIXME: add support for specifying a variable *before* our vimrc gets

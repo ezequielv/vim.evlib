@@ -52,8 +52,12 @@ function! s:EVLibTest_TestOutput_IsRedirectingToAFile()
 	return ( s:evlib_test_base_global_outputtofile_flag != 0 )
 endfunction
 
-function! s:EVLibTest_TestOutput_Do_Redir( file_escaped )
+" args:
+" * file_escaped
+" * redir_overwrite_flag: if unspecified, uses the default: 0 (false);
+function! s:EVLibTest_TestOutput_Do_Redir( file_escaped, ... )
 	let l:success = !0 " true
+	let l:redir_overwrite_flag = ( ( a:0 > 0 ) ? a:1 : ( 0 ) )
 
 	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 	let l:success = l:success && ( ! empty( a:file_escaped ) )
@@ -61,7 +65,8 @@ function! s:EVLibTest_TestOutput_Do_Redir( file_escaped )
 	if l:success
 		" NOTE: alternative, use option 'verbosefile' instead
 		"  (see ":h 'verbosefile'")
-		execute 'redir >> ' . a:file_escaped
+		let l:redir_ex_command_prefix = ( l:redir_overwrite_flag ? 'redir! >' : 'redir >>' )
+		execute l:redir_ex_command_prefix . ' ' . a:file_escaped
 		let s:evlib_test_base_global_outputtofile_flag = 1
 	endif
 	return l:success
@@ -123,14 +128,17 @@ function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 	return ( l:success ? l:redir_filename : '' )
 endfunction
 
-" args: [ do_redir_now_flag, [ redir_filename ] ]
+" args: [ do_redir_now_flag [, redir_filename [, redir_overwrite_flag ] ] ]
 " * do_redir_now_flag (default: TRUE);
+" * redir_filename: empty or unspecified to use automatic name detection;
+" * redir_overwrite_flag: if unspecified, uses the default: 0 (false);
 "
 " returns: success state
 function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 	let l:success = !0 " true
 	let l:do_redir_now_flag = ( ( a:0 > 0 ) ? ( a:1 ) : ( !0 ) )
 	let l:redir_filename_user = ( ( a:0 > 1 ) ? ( a:2 ) : '' )
+	let l:redir_overwrite_flag = ( ( a:0 > 2 ) ? ( a:3 ) : ( 0 ) )
 
 	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 
@@ -142,7 +150,7 @@ function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 			let l:file_escaped = fnameescape( l:file_escaped )
 		endif
 		if l:do_redir_now_flag
-			let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped )
+			let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped, l:redir_overwrite_flag )
 		endif
 		" note: purposedly writing these other (globally/script
 		"  scoped) variables
@@ -154,14 +162,17 @@ function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 	return l:success
 endfunction
 
-function! s:EVLibTest_TestOutput_Reopen()
+" args:
+" * redir_overwrite_flag: if unspecified, uses the default: 0 (false);
+function! s:EVLibTest_TestOutput_Reopen( ... )
 	let l:success = !0 " true
+	let l:redir_overwrite_flag = ( ( a:0 > 0 ) ? a:1 : ( 0 ) )
 
 	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 	let l:success = l:success && exists( 's:evlib_test_base_global_outputtofile_lastfile_escaped' ) && ( ! empty( s:evlib_test_base_global_outputtofile_lastfile_escaped ) )
 
 	" do it {{{
-	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_base_global_outputtofile_lastfile_escaped )
+	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_base_global_outputtofile_lastfile_escaped, l:redir_overwrite_flag )
 	" }}}
 
 	return l:success
