@@ -67,6 +67,22 @@ function! s:DebugExceptionCaught()
 endfunction
 " }}}
 
+" script-local variables {{{
+" for now, runutil.vim lives in the test directory
+" TODO: modify this when this file gets moved to another directory
+let s:evlib_test_runutil_testdir_evlib_rootdir = fnamemodify( expand( '<sfile>' ), ':p:h' )
+" }}}
+
+" TODO: MAYBE: share all these 'fnameescape() wrappers' in a file (maybe put it in 'base.vim', and access it from here)
+function! s:EVLibTest_Local_fnameescape( fname )
+	if exists( '*fnameescape' )
+		return fnameescape( a:fname )
+	else
+		" (see ':h escape()')
+		return escape( a:fname, ' \' )
+	endif
+endfunction
+
 function! s:Local_DefineFunctionFromFuncRef( fname, funcref )
 	for l:func_now in [ a:fname, 's:' . a:fname ]
 		try
@@ -98,7 +114,7 @@ function! s:EVLibTest_RunUtil_TestOutput_Process()
 endfunction
 
 function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
-	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\" )' ), ' ' )
+	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\\"" )' ), ' ' )
 endfunction
 
 function! s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( list, list_len_adjust )
@@ -439,9 +455,8 @@ function! s:EVLibTest_RunUtil_Local_GenUserScript_Source( scriptname, vars_to_sc
 	if l:success
 		try
 			let l:ret_procexittype = 'ok'
-			" FIXME: use a wrapper for fnameescape() (maybe put it in 'base.vim', and access it from here)
 			" TODO: se if we can make the 'source' non-silent, if needed
-			execute 'silent source ' . a:scriptname
+			execute 'silent source ' . s:EVLibTest_Local_fnameescape( a:scriptname )
 			call s:DebugMessage( l:debug_message_prefix . 'sourced "' . a:scriptname . '" successfully' )
 		catch
 			call s:DebugMessage( l:debug_message_prefix . 'sourcing "' . a:scriptname . '" threw an exception' )
@@ -908,6 +923,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	let l:debug_message_prefix = 'EVLibTest_RunUtil_Command_RunTests(): '
 
 	let l:process_flag = !0 " true
+	let l:verbose_flag = 0 " false
 	let l:do_help_flag = 0 " false
 
 	" process command (function) options (arguments) {{{
@@ -923,6 +939,11 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				\					[
 				\						'specify a list (comma-separated) of programs to run the tests',
 				\					]
+				\				]
+				\		],
+				\		[	[ '-v', '--verbose' ], 0,
+				\				[
+				\					'be more verbose (show commands)',
 				\				]
 				\		],
 				\	]
@@ -1000,6 +1021,8 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					break
 				elseif	( l:option_main_now == '-p' )
 					let l:programs_list += split( l:arg_now, ',', 0 )
+				elseif	( l:option_main_now == '-v' )
+					let l:verbose_flag = !0 " true
 				endif
 			else
 				" treat it as a file (we could do further validation here)
@@ -1491,6 +1514,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 		let l:test_output_file = ''
 		let l:test_output_file_temp_flag = 0 " false
 		let l:test_output_redirecting_flag = 0 " false
+		let l:test_ex_command_pref = ( l:verbose_flag ? '' : 'silent ' )
 		try
 			" scoped variable(s) initialisation {{{
 			let l:test_output_init_flag = 0 " false
@@ -1540,7 +1564,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 
 					if l:test_processing_use_tabs
 						" create new tab (with new buffer)
-						tabedit
+						silent tabedit
 					endif
 					let l:test_processing_createdbuffer_flag = !0 " true
 					setlocal buftype=nofile noswapfile
@@ -1549,7 +1573,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" IDEA: put all the filenames that the test had at the beginning,
 					"  for example (with one of those 'INFO:' lines?)
 					"  FIXME: and make that a folding group ("test info", etc.)
-					execute 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
+					execute l:test_ex_command_pref . 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
 					" }}}
 
 					" MAYBE: we could initialise 'processor'-related
@@ -1558,20 +1582,23 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" run all tests for each (vim) program {{{
 					for l:program_now in l:programs_list
 						" per-program initialisation {{{
-						" FIXME: start the program directly, not through 'env'
-						"  FIXME: add support for specifying a variable *before* our vimrc gets
-						"   loaded
-						"  FIXME: maybe load it through something else (not '-u'): '-c "let VAR | source TESTFILE"'
 						let l:progoptions_pref_list = [
-								\		'env',
-								\		'EVLIB_VIM_TEST_OUTPUTFILE=' . l:test_output_file,
 								\		l:program_now, '-f',
 								\		'-e',
 								\		'--noplugin',
 								\		'-U', 'NONE',
-								\		'-u',
+								\		'-u', 'NONE',
+								\		'-c', ''
+								\			. 'let g:evlib_test_outputfile="' . l:test_output_file . '"'
+								\			,
 								\	]
-						" NOTE: option for specifying script to run: '-u "${l_getresults_file_now}"'
+						if s:evlib_test_runutil_debug
+							let l:progoptions_pref_list += [
+									\		'-c', ''
+									\			. 'let g:evlib_test_testrunner_debug=1'
+									\			,
+									\	]
+						endif
 						" NOTE: executing vim/gvim uses stdout/stderr, and it can
 						"  be quite slow (especially under the GUI)
 						"  FIXME: do this per-platform, etc.
@@ -1579,8 +1606,15 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 						"   (even more disruptive)
 						"-?		\		'>' , '/dev/null',
 						"-?		\		'2>' , '/dev/null',
+						" NOTE: I don't think I need to call
+						"  s:EVLibTest_Local_fnameescape() to escape the
+						"  filename here, as
+						"  s:EVLibTest_RunUtil_Util_JoinCmdArgs() escapes all
+						"  args equally
 						let l:progoptions_suff_list = [
-								\		'+q',
+								\		'-S', ''
+								\			. s:evlib_test_runutil_testdir_evlib_rootdir . '/' . 'testrun.vim'
+								\			,
 								\	]
 						let l:progoptions_pref_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_pref_list )
 						let l:progoptions_suff_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_suff_list )
@@ -1605,15 +1639,22 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 
 								" FIXME: stop redirection here
 
-								" FIXME: execute the commands silently (':h :silent'),
-								"  and display "friendly" messages instead
-								execute '! '
-										\	.	l:progoptions_pref_string
-										\	.	' '
-										\	.	s:EVLibTest_RunUtil_Util_JoinCmdArgs( [ l:test_file_now ] )
-										\	.	' '
-										\	.	l:progoptions_suff_string
-								execute '! ls -l ' . l:test_output_file
+								let l:progoptions_test_list = [
+										\		'-c', ''
+										\			. 'let g:evlib_test_testrunner_testscript="' . l:test_file_now . '"'
+										\			,
+										\	]
+								execute l:test_ex_command_pref
+										\	.	'! '
+										\	.		l:progoptions_pref_string
+										\	.		' '
+										\	.		s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_test_list )
+										\	.		' '
+										\	.		l:progoptions_suff_string
+								if l:verbose_flag
+									execute l:test_ex_command_pref
+											\	.	'! ls -l ' . l:test_output_file
+								endif
 							catch " all exceptions
 								" FIXME: record an error string if the test failed (do it in a way
 								"  that will be shown to the user appropriately
@@ -1629,10 +1670,10 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" process the temporary file {{{
 					if filereadable( l:test_output_file )
 						" split/create tab, set new buffer attributes
-						execute '0r ' . l:test_output_file
+						execute l:test_ex_command_pref . '0r ' . l:test_output_file
 						" remove the last line (which should be empty), which
 						"  should belong to the original "clean" buffer
-						$d
+						silent $d
 						" if we have to (temporary file: always, user file:
 						"  when?), truncate/delete the file, or make sure that the
 						"  next invocation/use will overwrite the file, as opposed
@@ -1640,7 +1681,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 						if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )
 							call delete( l:test_output_file ) " ignore rc for now
 						endif
-						" FIXME: do proper error handling
+						" FIXME: do proper error handling (do not discard return value)
 						call s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke(
 									\		l:processor_defs_data,
 									\		'f_process_output',
