@@ -13,6 +13,10 @@ set cpo&vim
 
 " }}} boiler plate -- prolog
 
+" g:evlib_test_processor_operation {{{
+if g:evlib_test_processor_operation == 'define_functions'
+" g:evlib_test_processor_operation == 'define_functions' {{{
+
 " include our 'base' script (variables, functions) {{{
 execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'c-defs.vim'
 " save object just created/returned into our own script variable
@@ -61,6 +65,7 @@ let b:evlib_test_evtest_evtstd_base_object.c_results_group = b:evlib_test_evtest
 " example: RESULTS (Total): tests: 14, pass: 3 -- [custom.results] [pass]
 let b:evlib_test_evtest_evtstd_base_object.c_results_total = b:evlib_test_evtest_evtstd_base_object.c_results_pref . 'Total' . b:evlib_test_evtest_evtstd_base_object.c_results_suff
 " example:    test 1 (true) . . . . . . . . . . . . . . . . . . . . . . . [pass]
+" fix vim parser: {
 let b:evlib_test_evtest_evtstd_base_object.c_testline_pref = '^ \{3,}'
 let b:evlib_test_evtest_evtstd_base_object.c_testline = b:evlib_test_evtest_evtstd_base_object.c_testline_pref . '.*' . b:evlib_test_evtest_evtstd_base_object.c_squarebrackets_end
 " example: SUITE: suite #10.1: skip local/all test [custom] [{test}/vimrc_10_selftest-ex-local-pass.vim]
@@ -240,7 +245,7 @@ function! b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( regex )
 	return b:evlib_test_evtest_evtstd_base_object.c_output_pref_optional . substitute( a:regex, '\^', '', 'g' )
 endfunction
 
-function! b:EVLibTest_RunUtil_TestOutput_Process()
+function! b:EVLibTest_RunUtil_TestOutput_Process( processor_function_args )
 	call b:EVLibTest_RunUtil_TestOutput_Sanitise()
 	setl readonly nomodifiable noswapfile
 
@@ -276,6 +281,7 @@ function! b:EVLibTest_RunUtil_TestOutput_Process()
 	execute 'syntax match evtResultHeaderGroup /' . b:EVLibTest_RunUtil_TestOutput_SynMakeRegexAtBeginningOfLine( b:evlib_test_evtest_evtstd_base_object.c_results_group ) . '/' . ' contained'
 	syntax cluster evtResultHeaderAll contains=evtResultHeaderSuite,evtResultHeaderGroup
 
+	" fix vim parser: {
 	execute 'syntax match evtResultResultDataDetail /' . 'tests:\s*[[:digit:]]\+.\{,4}pass:\s*[[:digit:]]\+' . '/' . ' contained'
 	execute 'syntax match evtResultResultDataSummary /' . '\(\(\[custom\.results\]\)\|\(rate:\s*[[:digit:]\.%]\+\)\)' . '/' . ' contained'
 	syntax cluster evtResultResultDataAll contains=evtResultResultDataSummary,evtResultResultDataDetail
@@ -474,6 +480,7 @@ function! b:EVLibTest_RunUtil_TestOutput_Process()
 		endif
 	endfor
 	" }}}
+	" }}}
 
 	for l:map_elem_now in [
 				\		[ 'tf', ':call b:EVLibTest_RunUtil_TestOutput_SearchTestFail(1)<CR>' ],
@@ -504,9 +511,16 @@ function! b:EVLibTest_RunUtil_TestOutput_Process()
 	" [debug] echo "done"
 endfunction
 
-" do buffer processing {{{
-call b:EVLibTest_RunUtil_TestOutput_Process()
-" }}}
+" set output variable
+let g:evlib_test_processor_output = {
+			\		'functions': {
+			\				'f_process_output': function( 'b:EVLibTest_RunUtil_TestOutput_Process' ),
+			\			},
+			\	}
+
+" }}} g:evlib_test_processor_operation == 'define_functions'
+endif
+" }}} g:evlib_test_processor_operation
 
 " boiler plate -- epilog {{{
 
