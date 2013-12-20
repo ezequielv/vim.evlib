@@ -253,8 +253,8 @@ function! s:EVLibTest_RunUtil_Local_ProcGroupsAddElem( test_processors_groups_li
 			if ( ! has_key( a:test_processors_groups_list_elem_commit, 'processor_defs_data' ) )
 				let a:test_processors_groups_list_elem_commit.processor_defs_data = {}
 			endif
-			" copy the 'file' as the 'process_script_out'
-			let a:test_processors_groups_list_elem_commit.processor_defs_data.process_script_out = l:processor_id
+			" copy the 'file' as the 'processor_script'
+			let a:test_processors_groups_list_elem_commit.processor_defs_data.processor_script = l:processor_id
 		endif
 		if ( !( has_key( a:test_processors_groups_list_elem_commit, 'processor_defs_data' ) ) )
 			" FIXME: throw an error: this should never happen
@@ -553,7 +553,7 @@ function! s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke( processor_defs_data, fu
 	let l:process_source_script_flag = (
 				\		( ! has_key( a:processor_defs_data, 'functions' ) )
 				\		&&
-				\		( ! has_key( a:processor_defs_data, 'sourced_process_script_out' ) )
+				\		( ! has_key( a:processor_defs_data, 'sourced_processor_script' ) )
 				\	)
 
 	call s:DebugMessage( l:debug_message_prefix . 'l:process_source_script_flag: ' . string( l:process_source_script_flag ) )
@@ -561,7 +561,7 @@ function! s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke( processor_defs_data, fu
 	if l:success && ( l:process_source_script_flag )
 		" attempt to process the script to define the functions
 		let l:source_ret_value = s:EVLibTest_RunUtil_Local_GenUserScript_Source(
-					\		a:processor_defs_data.process_script_out,
+					\		a:processor_defs_data.processor_script,
 					\		{
 					\			'g:evlib_test_processor_operation': 'define_functions',
 					\			'g:evlib_test_processor_input': {},
@@ -572,7 +572,7 @@ function! s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke( processor_defs_data, fu
 					\	)
 		let l:success = l:success && ( l:source_ret_value.procexittype == 'ok' )
 		" whatever happened, we flag that we've tried
-		let a:processor_defs_data.sourced_process_script_out = !0 " true
+		let a:processor_defs_data.sourced_processor_script = !0 " true
 		call s:DebugMessage( l:debug_message_prefix . ' called s:EVLibTest_RunUtil_Local_GenUserScript_Source(). l:success: ' . string( l:success ) )
 
 		if l:success
@@ -660,13 +660,13 @@ endfunction
 "							{
 "								'version_range': [ [ 0, 1, 0 ], [ 0, 2, 0 ] ],
 "								'processor_defs_data': {
-"										'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+"										'processor_script': 'evtest/proc/evtstd/v0-1-0.vim',
 "									},
 "							},
 "							{
 "								'version_range': [ [ 1, 0, 0 ], [ 1, 4, 20 ] ],
 "								'processor_defs_data': {
-"										'process_script_out': 'evtest/proc/evtstd/v1-4-20.vim',
+"										'processor_script': 'evtest/proc/evtstd/v1-4-20.vim',
 "									},
 "							},
 "						],
@@ -674,13 +674,13 @@ endfunction
 " 			'userplain01': {
 " 					'categtype': 'plain',
 "					'processor_defs_data': {
-" 							'process_script_out': 'userplain01_out.vim',
+" 							'processor_script': 'userplain01_out.vim',
 " 						},
 " 				},
 " 			'user01': {
 " 					'categtype': 'plain',
 "					'processor_defs_data': {
-" 							'process_script_out': 'user01_out.vim',
+" 							'processor_script': 'user01_out.vim',
 " 						},
 " 				},
 " 		}
@@ -884,7 +884,7 @@ function! s:EVLibTest_RunUtil_Local_PopulateProcessorDefs( test_files )
 												\		{	'processor_id': l:processor_id,
 												\			'version_range': [ l:version_range_start, l:version_from_file_list ],
 												\			'processor_defs_data': {
-												\					'process_script_out': l:processor_file_now,
+												\					'processor_script': l:processor_file_now,
 												\				},
 												\		}
 												\	)
@@ -1310,7 +1310,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" 				'files': [ 'file1.vim', 'file2.vim', 'file3.vim' ]
 	" 				'processor_defs_data': {
 	" 						"-? 'process_script_pre': 'evtest/proc/evtstd/p0-1-0.vim',
-	" 						'process_script_out': 'evtest/proc/evtstd/v0-1-0.vim',
+	" 						'processor_script': 'evtest/proc/evtstd/v0-1-0.vim',
 	" 					},
 	" 			},
 	" 			{
@@ -1321,7 +1321,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" 				'files': [ 'file_p1.vim', 'file_p2.vim' ]
 	" 				'processor_defs_data': {
 	" 						"-? 'process_script_pre': 'userplain01_pre.vim',
-	" 						'process_script_out': 'userplain01_out.vim',
+	" 						'processor_script': 'userplain01_out.vim',
 	" 					},
 	" 			},
 	" 			{
@@ -1331,7 +1331,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" 				'sort_index': 3,
 	" 				'files': [ 'file_f1.vim', 'file_f2.vim' ]
 	" 				'processor_defs_data': {
-	" 						'process_script_out': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
+	" 						'processor_script': '/home/user/devel/scripts/vim/evtest/proc/myprocessor.vim',
 	" 					},
 	" 			},
 	" 			{
@@ -1342,7 +1342,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 	" 				'files': [ 'file_u1.vim', 'file_u2.vim' ]
 	" 				'processor_defs_data': {
 	" 						"-? 'process_script_pre': 'user01_pre.vim',
-	" 						'process_script_out': 'user01_out.vim',
+	" 						'processor_script': 'user01_out.vim',
 	" 					},
 	" 			},
 	" 		]
