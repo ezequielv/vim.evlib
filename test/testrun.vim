@@ -49,6 +49,8 @@ endfunction
 "   * an exception was thrown when sourcing the test file;
 "   ... in the format that the test file claimed to support.
 
+" general functions {{{
+
 function s:EVLibTest_Local_fnameescape( fname )
 	if exists( '*fnameescape' )
 		return fnameescape( a:fname )
@@ -57,6 +59,10 @@ function s:EVLibTest_Local_fnameescape( fname )
 		return escape( a:fname, ' \' )
 	endif
 endfunction
+
+" }}}
+
+" main functions {{{
 
 function s:EVLibTest_TestRunner_RunTestAuto()
 	let l:debug_message_prefix = 's:EVLibTest_TestRunner_RunTestAuto(): '
@@ -95,6 +101,8 @@ function s:EVLibTest_TestRunner_RunTestAuto()
 	return l:success
 endfunction
 
+" }}}
+
 " restore old "compatibility" options {{{
 let &cpo=s:cpo_save
 unlet s:cpo_save
@@ -102,7 +110,12 @@ unlet s:cpo_save
 
 " NOTE: here, we have the 'compatibility' options as they were {{{
 
-call s:DebugMessage( 'hello from testrun.vim' )
+" exception handling block {{{
+try
+" 'try' block {{{
+
+call s:DebugMessage( 'testrun.vim: executing non-function code' )
+
 if exists( 'g:evlib_test_testrunner_debug' )
 	call s:DebugMessage( 'g:evlib_test_testrunner_debug: ' . string( g:evlib_test_testrunner_debug ) )
 endif
@@ -114,10 +127,15 @@ call s:DebugMessage( 'g:evlib_test_outputfile: ' . string( g:evlib_test_outputfi
 
 " 'source' the test script
 call s:EVLibTest_TestRunner_RunTestAuto()
+
+" }}}
+finally
+	" whatever happens, exit vim now
+	quit
+endtry
 " }}}
 
-" test has been executed. now exit vim.
-quit
+" }}}
 
 " boilerplate -- epilog {{{
 finish
@@ -126,6 +144,6 @@ endif
 echoerr 'testrun.vim needs the "eval" feature'
 " }}}
 
-" vim600: set filetype=vim fileformat=unix:
+" vim600: set filetype=vim fileformat=unix foldmethod=marker:
 " vim: set noexpandtab:
 " vi: set autoindent tabstop=4 shiftwidth=4:
