@@ -46,7 +46,8 @@ let s:evlib_test_base_test_testtrees_rootdir = s:evlib_test_base_testdir . '/tes
 " test framework modules {{{
 function! s:EVLibTest_Module_Load( module )
 	let l:filepath = s:evlib_test_base_testdir . '/' . a:module
-	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : l:filepath )
+	" (see ':h escape()')
+	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : escape( l:filepath, ' \' ) )
 	return !0 " true
 endfunction
 " }}}
@@ -76,6 +77,8 @@ function! s:EVLibTest_TestOutput_Do_Redir( file_escaped, ... )
 	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 	let l:success = l:success && ( ! empty( a:file_escaped ) )
 
+	" TODO: remove: echomsg '[debug] s:EVLibTest_TestOutput_Do_Redir(): l:success = ' . string( l:success )
+	" TODO: remove: echomsg '[debug] s:EVLibTest_TestOutput_Do_Redir(): a:file_escaped = ' . string( a:file_escaped )
 	if l:success
 		" NOTE: alternative, use option 'verbosefile' instead
 		"  (see ":h 'verbosefile'")
@@ -111,7 +114,10 @@ function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 					let l:stage_is_last = !0 " true
 
 					if ( ! exists( 'l:variables_list' ) )
-						let l:variables_list = [ '$EVLIB_VIM_TEST_OUTPUTFILE' ]
+						let l:variables_list = [
+									\		'g:evlib_test_outputfile',
+									\		'$EVLIB_VIM_TEST_OUTPUTFILE',
+									\	]
 					endif
 					" remove the first element from the list, and store it in
 					"  l:var_now
@@ -119,7 +125,7 @@ function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 					let l:var_now = remove( l:variables_list, 0 )
 
 					if l:success && exists( l:var_now )
-						let l:filename_now = expand( l:var_now )
+						let l:filename_now = eval( l:var_now )
 					endif
 
 					let l:stage_finished = empty( l:variables_list )
