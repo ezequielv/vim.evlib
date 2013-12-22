@@ -43,20 +43,27 @@ let s:evlib_test_base_rootdir = fnamemodify( s:evlib_test_base_testdir, ':h' )
 let s:evlib_test_base_test_testtrees_rootdir = s:evlib_test_base_testdir . '/test_trees'
 " }}}
 
+" general functions {{{
+
+function! s:EVLibTest_Local_fnameescape( fname )
+	if exists( '*fnameescape' )
+		return fnameescape( a:fname )
+	else
+		" (see ':h escape()')
+		return escape( a:fname, ' \' )
+	endif
+endfunction
+
+" }}}
+
 " test framework modules {{{
 function! s:EVLibTest_Module_Load( module )
 	let l:filepath = s:evlib_test_base_testdir . '/' . a:module
 	" (see ':h escape()')
-	execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( l:filepath ) : escape( l:filepath, ' \' ) )
+	execute 'source ' . s:EVLibTest_Local_fnameescape( l:filepath )
 	return !0 " true
 endfunction
 " }}}
-" }}}
-
-" include our 'base' script (variables, functions) {{{
-call s:EVLibTest_Module_Load( 'evtest/proc/evtstd/c-defs.vim' )
-" save object just created/returned into our own script variable
-let s:evlib_test_evtest_evtstd_base_object = g:evlib_test_evtest_evtstd_base_object_last
 " }}}
 
 " support for writing the results to a file {{{
@@ -166,9 +173,7 @@ function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 		let l:file_escaped = s:EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_filename_user )
 	endif
 	if l:success && ( ! empty( l:file_escaped ) )
-		if exists( '*fnameescape' )
-			let l:file_escaped = fnameescape( l:file_escaped )
-		endif
+		let l:file_escaped = s:EVLibTest_Local_fnameescape( l:file_escaped )
 		if l:do_redir_now_flag
 			let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped, l:redir_overwrite_flag )
 		endif
@@ -212,34 +217,6 @@ endfunction
 
 " }}}
 
-" TODO: make this include a "defs.vim" (done) with just constants (useful for
-"  the 'foldexpr' and 'foldtext' implementing functions)
-"
-"  MAYBE: ... and move constants there! (which might need some refactoring,
-"   too, in order to share just the literals on one hand, and then have
-"   regexes for matching the produced lines, on the other);
-
-" formatted output support {{{
-
-let s:evlib_test_base_output_lineprefix_string = s:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string
-
-function! s:EVLibTest_TestOutput_GetFormattedLinePrefix()
-	return s:evlib_test_base_output_lineprefix_string
-endfunction
-
-function! s:EVLibTest_TestOutput_OutputLine( msg )
-	" fix: when redirecting to a file, make sure that we start each message on
-	"  a new line (error messages sometimes have a '<CR>' at the end, which
-	"  means that the next line will start at column > 1
-	if s:EVLibTest_TestOutput_IsRedirectingToAFile()
-		silent echomsg ' '
-	endif
-	execute ( s:EVLibTest_TestOutput_IsRedirectingToAFile() ? 'silent ' : '' )
-		\	. 'echomsg s:evlib_test_base_output_lineprefix_string . a:msg'
-endfunction
-
-" }}}
-
 " everything in this file will be part of: s:evlib_test_base_object {{{
 " TODO: define the functions directly in the dictionary object, to avoid this ugly hack
 " from ':h <SID>' {{{
@@ -255,8 +232,6 @@ let s:evlib_test_base_object = {
 		\		'c_rootdir':				s:evlib_test_base_rootdir,
 		\		'c_testtrees_rootdir':		s:evlib_test_base_test_testtrees_rootdir,
 		\
-		\		'f_testoutput_outputline':					function( s:funpref . 'EVLibTest_TestOutput_OutputLine' ),
-		\		'f_testoutput_getformattedlineprefix':		function( s:funpref . 'EVLibTest_TestOutput_GetFormattedLinePrefix' ),
 		\		'f_testoutput_close':						function( s:funpref . 'EVLibTest_TestOutput_Close' ),
 		\		'f_testoutput_reopen':						function( s:funpref . 'EVLibTest_TestOutput_Reopen' ),
 		\		'f_testoutput_initandopen':					function( s:funpref . 'EVLibTest_TestOutput_InitAndOpen' ),
@@ -265,6 +240,7 @@ let s:evlib_test_base_object = {
 		\		'f_testoutput_isredirectingtoafile':		function( s:funpref . 'EVLibTest_TestOutput_IsRedirectingToAFile' ),
 		\
 		\		'f_module_load':							function( s:funpref . 'EVLibTest_Module_Load' ),
+		\		'f_fnameescape':							function( s:funpref . 'EVLibTest_Local_fnameescape' ),
 		\	}
 " }}}
 
@@ -294,6 +270,6 @@ echoerr "the script 'test/base.vim' needs support for the following: eval"
 
 " }}} boiler plate -- epilog
 
-" vim600: set filetype=vim fileformat=unix:
+" vim600: set filetype=vim fileformat=unix foldmethod=marker:
 " vim: set noexpandtab:
 " vi: set autoindent tabstop=4 shiftwidth=4:

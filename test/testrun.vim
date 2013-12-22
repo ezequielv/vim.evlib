@@ -2,10 +2,8 @@
 
 " boilerplate -- prolog {{{
 if has('eval')
-" ref: let g:evlib_test_common_main_source_file = expand( '<sfile>' )
-" ref: " load 'common' vim code
-" ref: let s:evlib_test_common_common_source_file = fnamemodify( g:evlib_test_common_main_source_file, ':p:h' ) . '/common.vim'
-" ref: execute 'source ' . ( exists( '*fnameescape' ) ? fnameescape( s:evlib_test_common_common_source_file ) : s:evlib_test_common_common_source_file )
+let s:evlib_test_testrun_main_source_file = expand( '<sfile>' )
+let s:evlib_test_testrun_testdir = fnamemodify( s:evlib_test_testrun_main_source_file, ':p:h' )
 " }}}
 
 " force "compatibility" mode {{{
@@ -40,7 +38,7 @@ function! s:DebugExceptionCaught()
 endfunction
 " }}}
 
-" FIXME: refactor the code in runtest.vim so that some of those functions are
+" FIXME: refactor the code in runutil.vim so that some of those functions are
 "  available to this module, too.
 "  NOTE: in particular, the function
 "   s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke() (and its requirements)
@@ -59,6 +57,16 @@ function s:EVLibTest_Local_fnameescape( fname )
 		return escape( a:fname, ' \' )
 	endif
 endfunction
+
+" }}}
+
+" include & process needed 'modules' {{{
+
+" include our 'base' script (variables, functions) {{{
+execute 'source ' . s:EVLibTest_Local_fnameescape( s:evlib_test_testrun_testdir . '/' . 'base.vim' )
+" save object just created/returned into our own script variable
+let s:evlib_test_base_object = g:evlib_test_base_object_last
+" }}}
 
 " }}}
 
@@ -112,24 +120,30 @@ unlet s:cpo_save
 
 " exception handling block {{{
 try
-" 'try' block {{{
+	" 'try' block {{{
 
-call s:DebugMessage( 'testrun.vim: executing non-function code' )
+	call s:evlib_test_base_object.f_testoutput_initandopen()
 
-if exists( 'g:evlib_test_testrunner_debug' )
-	call s:DebugMessage( 'g:evlib_test_testrunner_debug: ' . string( g:evlib_test_testrunner_debug ) )
-endif
-call s:DebugMessage( 'g:evlib_test_testrunner_testscript: ' . string( g:evlib_test_testrunner_testscript ) )
-if s:IsDebuggingEnabled()
-	pwd
-endif
-call s:DebugMessage( 'g:evlib_test_outputfile: ' . string( g:evlib_test_outputfile ) )
+	call s:DebugMessage( 'testrun.vim: executing non-function code' )
 
-" 'source' the test script
-call s:EVLibTest_TestRunner_RunTestAuto()
+	if exists( 'g:evlib_test_testrunner_debug' )
+		call s:DebugMessage( 'g:evlib_test_testrunner_debug: ' . string( g:evlib_test_testrunner_debug ) )
+	endif
+	call s:DebugMessage( 'g:evlib_test_testrunner_testscript: ' . string( g:evlib_test_testrunner_testscript ) )
+	if s:IsDebuggingEnabled()
+		pwd
+	endif
+	call s:DebugMessage( 'g:evlib_test_outputfile: ' . string( g:evlib_test_outputfile ) )
 
-" }}}
+	" 'source' the test script
+	call s:EVLibTest_TestRunner_RunTestAuto()
+
+	" }}}
 finally
+	if s:evlib_test_base_object.f_testoutput_isredirectingtoafile()
+		" ignore rc for now
+		call s:evlib_test_base_object.f_testoutput_close()
+	endif
 	" whatever happens, exit vim now
 	quit
 endtry

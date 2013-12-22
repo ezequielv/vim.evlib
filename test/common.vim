@@ -87,17 +87,62 @@ function! EVLibTest_TestOutput_Close()
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_close', 0, [] )
 endfunction
 
-function! EVLibTest_TestOutput_GetFormattedLinePrefix()
-	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_getformattedlineprefix', 0, [] )
-endfunction
-
-function! EVLibTest_TestOutput_OutputLine( v1 )
-	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_outputline', 1, [] )
-endfunction
+" FIXME: refactoring:
+"  . base.vim: move the functions that are mapped below directly into 'common.vim';
+"  . base.vim: remove the inclusion of 'c-defs.vim';
+"   . double check that there would be no references to symbols defined in
+"      'c-defs.vim' before doing this;
+"  . include the 'c-defs.vim' file from 'common.vim' (for now);
+"   . NOTE: currently, 'common.vim' is including 'base.vim' (leave this as
+"      is), which in turn is including 'c-defs.vim';
+"   * TODO: in the future, make 'common.vim' be more format agnostic, so tests
+"      can use an alternative test format (through the 'Funcref's defined in
+"      the processor script);
+"  . include 'base.vim' from 'testrun.vim', then call the redirection
+"     function(s) from there;
+"  . remove the call to EVLibTest_TestOutput_InitAndOpen() from 'common.vim';
+"   . check there are no other calls to redirection functions from
+"      'common.vim';
+"  . add call to ...f_testoutput_initandopen() from 'testrun.vim' (no need to
+"     create a wrapper function for that, for the moment)
+"  * consider renaming 'base.vim' to something else that correctly describes
+"     its new role: a file to take care of test redirection and test
+"     environment handling;
 
 " }}}
 
 " variables and functions {{{
+
+" formatted output support {{{
+
+" include our 'base' script (variables, functions) {{{
+call EVLibTest_Module_Load( 'evtest/proc/evtstd/c-defs.vim' )
+" save object just created/returned into our own script variable
+let s:evlib_test_evtest_evtstd_base_object = g:evlib_test_evtest_evtstd_base_object_last
+" }}}
+
+let s:evlib_test_base_output_lineprefix_string = s:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string
+
+function! s:EVLibTest_TestOutput_GetFormattedLinePrefix()
+	return s:evlib_test_base_output_lineprefix_string
+endfunction
+
+function! EVLibTest_TestOutput_OutputLine( msg )
+	" fix: when redirecting to a file, make sure that we start each message on
+	"  a new line (error messages sometimes have a '<CR>' at the end, which
+	"  means that the next line will start at column > 1)
+	if EVLibTest_TestOutput_IsRedirectingToAFile()
+		silent echomsg ' '
+		let l:cmdprefix = 'silent '
+	else
+		let l:cmdprefix = ''
+	endif
+	execute l:cmdprefix
+		\	. 'echomsg s:evlib_test_base_output_lineprefix_string . a:msg'
+endfunction
+
+" }}}
+
 " global test support {{{
 function s:EVLibTest_Suite_InitLow()
 	let g:evlib_test_common_global_ntests = 0
@@ -174,9 +219,6 @@ function EVLibTest_Finalise( ... )
 
 	call s:EVLibTest_Suite_InitLow()
 endfunction
-
-" TODO: add an event handler before vim exits, to close the redirection
-call EVLibTest_TestOutput_InitAndOpen()
 
 function EVLibTest_Gen_InfoMsg( msg )
 	return EVLibTest_TestOutput_OutputLine( 'info: ' . a:msg )
@@ -413,7 +455,7 @@ function EVLibTest_Test_EndCommon( msg_result )
 			let l:message_end_result = repeat( ' ', l:message_end_padding_len ) . l:message_end_result
 		endif
 
-		let l:message_unpadded_len = strlen( EVLibTest_TestOutput_GetFormattedLinePrefix() ) + strlen( l:message_start ) + strlen( l:message_end_result )
+		let l:message_unpadded_len = strlen( s:EVLibTest_TestOutput_GetFormattedLinePrefix() ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
 		let l:columns = ( EVLibTest_TestOutput_IsRedirectingToAFile() ? 76 : min( [ &columns, 100 ] ) ) - 1
 		if ( l:message_unpadded_len < l:columns )
