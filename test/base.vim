@@ -94,58 +94,157 @@ endfunction
 
 " support for writing the results to a file {{{
 let s:evlib_test_base_global_outputtofile_flag = 0
-let s:evlib_test_base_global_outputtofile_lastfile_escaped = ''
+unlet! s:evlib_test_base_global_outputredir_object_last
+let s:evlib_test_base_global_outputredir_object_last = ''
 
 function! s:EVLibTest_TestOutput_IsRedirectingToAFile()
 	return ( s:evlib_test_base_global_outputtofile_flag != 0 )
 endfunction
 
 " args:
-" * file_escaped
+" * redir_expression
+"
+" returns:
+"  dictionary with the following entries:
+"   * 'success': "boolean" (==0, !=0);
+"   * 'redir_dict': (only when 'success' != 0);
+function! s:EVLibTest_TestOutput_NormaliseValidateRedirExpr( redir_expression )
+	let l:debug_message_prefix = 's:EVLibTest_TestOutput_NormaliseValidateRedirExpr(): '
+
+	let l:success = !0 " true
+	let l:redir_dict = {}	" default
+
+	if l:success
+		let l:filename_or_dict_type = type( a:redir_expression )
+		if ( l:filename_or_dict_type == type( '' ) )
+			" this check is not strictly necessary (an empty string should be
+			"  picked up by the '!empty()' check on 'filename', below)
+			"? let l:success = l:success && ( ! empty( a:redir_expression ) )
+
+			" MAYBE: do further parsing, to support string to dict conversions
+			"  for all supported types
+			let l:redir_dict = {
+						\		'redir_type': 'file',
+						\		'filename': a:redir_expression,
+						\	}
+		elseif ( l:filename_or_dict_type == type( {} ) )
+			let l:redir_dict = deepcopy( a:redir_expression )
+		else
+			" FIXME: throw an exception, report an error
+			let l:success = 0 " false
+		endif
+	endif
+
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
+
+	" make sure the src entry is valid {{{
+	let l:success = l:success && ( has_key( l:redir_dict, 'redir_type' ) )
+	if l:success
+		let l:redir_type = l:redir_dict.redir_type
+		if ( l:redir_type == 'file' )
+			let l:success = l:success && ( ! empty( l:redir_dict.filename ) )
+		elseif ( l:redir_type == 'reg' )
+			let l:success = l:success && ( match( l:redir_dict.register, '^[a-z]$' ) >= 0 ) )
+		elseif ( l:redir_type == 'var' )
+			let l:success = l:success && ( ! empty( l:redir_dict.varname ) )
+		else
+			" FIXME: throw an exception, report an error
+			let l:success = 0 " false
+		endif
+	endif
+	" }}}
+
+	call s:DebugMessage( l:debug_message_prefix . ' l:redir_dict = ' . string( l:redir_dict ) )
+	call s:DebugMessage( l:debug_message_prefix . ' l:success = ' . string( l:success ) )
+
+	let l:retdict = {
+				\		'success': l:success,
+				\	}
+	if l:success
+		let l:retdict.redir_dict = l:redir_dict
+	endif
+	return l:retdict
+endfunction
+
+" args:
+" * redir_expression
 " * redir_overwrite_flag: if unspecified, uses the default: 0 (false);
-function! s:EVLibTest_TestOutput_Do_Redir( file_escaped, ... )
+function! s:EVLibTest_TestOutput_Do_Redir( redir_expression, ... )
 	let l:debug_message_prefix = 's:EVLibTest_TestOutput_Do_Redir(): '
 
 	let l:success = !0 " true
 	let l:redir_overwrite_flag = ( ( a:0 > 0 ) ? a:1 : ( 0 ) )
+	let l:redir_dict = {}	" default value
 
-	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
-	let l:success = l:success && ( ! empty( a:file_escaped ) )
-
-
-	call s:DebugMessage( l:debug_message_prefix . ' l:success = ' . string( l:success ) )
-	call s:DebugMessage( l:debug_message_prefix . ' a:file_escaped = ' . string( a:file_escaped ) )
 	if l:success
-		" NOTE: alternative, use option 'verbosefile' instead
-		"  (see ":h 'verbosefile'")
-		let l:redir_ex_command_prefix = ( l:redir_overwrite_flag ? 'redir! >' : 'redir >>' )
-		execute l:redir_ex_command_prefix . ' ' . a:file_escaped
-		let s:evlib_test_base_global_outputtofile_flag = 1
+		let l:normalise_redir_retdict = s:EVLibTest_TestOutput_NormaliseValidateRedirExpr( a:redir_expression )
+		let l:success = l:success && l:normalise_redir_retdict.success
+		if l:success
+			let l:redir_dict = l:normalise_redir_retdict.redir_dict
+		endif
+	endif
+
+	call s:DebugMessage( l:debug_message_prefix . ' l:redir_dict = ' . string( l:redir_dict ) )
+	call s:DebugMessage( l:debug_message_prefix . ' l:success = ' . string( l:success ) )
+	if l:success
+		let l:redir_type = l:redir_dict.redir_type
+		if ( l:redir_type == 'file' )
+			" NOTE: alternative, use option 'verbosefile' instead
+			"  (see ":h 'verbosefile'")
+			let l:redir_ex_command_prefix = ( l:redir_overwrite_flag ? 'redir! >' : 'redir >>' ) . ' '
+			execute l:redir_ex_command_prefix . s:EVLibTest_Local_fnameescape( l:redir_dict.filename )
+		elseif ( l:redir_type == 'reg' )
+			let l:redir_ex_command_prefix = 'redir @'
+			let l:redir_ex_command_suffix = ( l:redir_overwrite_flag ? '>' : '>>' )
+			execute l:redir_ex_command_prefix . tolower( l:redir_dict.register ) . l:redir_ex_command_suffix
+		elseif ( l:redir_type == 'var' )
+			if ( l:redir_overwrite_flag )
+				" make sure that we will not get type incompatibilities by
+				"  undefining the variable first
+				execute 'unlet! ' . l:redir_dict.varname
+			endif
+			let l:redir_ex_command_prefix = 'redir ' . ( l:redir_overwrite_flag ? '=>' : '=>>' ) . ' '
+			execute l:redir_ex_command_prefix . l:redir_dict.varname
+		else
+			let l:success = 0 " false
+		endif
+		if l:success
+			let s:evlib_test_base_global_outputtofile_flag = 1
+		endif
 	endif
 	return l:success
 endfunction
 
-" args: [ redir_filename ]
-"  * redir_filename: (ignored if empty)
+" FIXME: rename this function: s:EVLibTest_TestOutput_OptionalGetRedirFilename() -> s:EVLibTest_TestOutput_OptionalGetRedirExpression()
+"  FIXME: rename the "exported" dictionary entry accordingly
+"  FIXME: grep for the callers/users of the above, and change accordingly
 "
-" returns: file name to use in redirection, if one was found
-"  (the empty string if one was not found)
+" args: [ redir_expression ]
+"  * redir_expression: (ignored if empty)
+"
+" returns:
+"  on success, an instance of the right type that can be passed onto other
+"   redirection functions;
+"  on error, an instance that should hold 'empty( return_value )';
 function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 	let l:success = !0 " true
-	let l:redir_filename = ''
+	let l:redir_expression_default = ''
+	let l:redir_expression = l:redir_expression_default
 
 	if l:success
 		let l:stage = 1
-		while ( l:success ) && ( empty( l:redir_filename ) )
+		while ( l:success ) && ( empty( l:redir_expression ) )
 			let l:stage_finished = !0 " true (by default)
 			let l:stage_is_last = 0 " false
-			let l:filename_now = ''
+			" avoid type assignment clashing -> undefine the variable(s)
+			unlet! l:redir_expression
+			unlet! l:redir_expression_now
 
 			" note: if ( ! l:success ) the while condition will stop the loop
 			if l:success
 				if l:stage == 1
 					" process optional argument
-					let l:filename_now = ( ( a:0 > 0 ) ? ( a:1 ) : '' )
+					let l:redir_expression_now = ( ( a:0 > 0 ) ? ( a:1 ) : '' )
 				elseif l:stage == 2
 					let l:stage_is_last = !0 " true
 
@@ -161,14 +260,25 @@ function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 					let l:var_now = remove( l:variables_list, 0 )
 
 					if l:success && exists( l:var_now )
-						let l:filename_now = eval( l:var_now )
+						let l:redir_expression_now = eval( l:var_now )
 					endif
 
 					let l:stage_finished = empty( l:variables_list )
+					" tidy up after ourselves before leaving this stage for
+					"  good
+					if ( l:stage_finished )
+						unlet l:variables_list
+					endif
 				endif
 			endif
-			if l:success && ( ! empty( l:filename_now ) )
-				let l:redir_filename = l:filename_now
+			if l:success && exists( 'l:redir_expression_now' ) && ( ! empty( l:redir_expression_now ) )
+				let l:redir_expression = l:redir_expression_now
+			endif
+
+			" make sure the 'while' expression is valid
+			"  (and that we can return this variable outside this loop)
+			if ( ! exists( 'l:redir_expression' ) )
+				let l:redir_expression = l:redir_expression_default
 			endif
 
 			if l:stage_finished
@@ -181,7 +291,9 @@ function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
 		endwhile
 	endif
 
-	return ( l:success ? l:redir_filename : '' )
+	" note: the type does not matter (that much): return an empty object in
+	"  the case of an error
+	return ( l:success ? l:redir_expression : '' )
 endfunction
 
 " args: [ do_redir_now_flag [, redir_filename [, redir_overwrite_flag ] ] ]
@@ -195,26 +307,26 @@ function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 
 	let l:success = !0 " true
 	let l:do_redir_now_flag = ( ( a:0 > 0 ) ? ( a:1 ) : ( !0 ) )
-	let l:redir_filename_user = ( ( a:0 > 1 ) ? ( a:2 ) : '' )
+	let l:redir_expression_user = ( ( a:0 > 1 ) ? ( a:2 ) : '' )
 	let l:redir_overwrite_flag = ( ( a:0 > 2 ) ? ( a:3 ) : ( 0 ) )
 
 	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
 
 	if l:success
-		let l:file_escaped = s:EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_filename_user )
+		let l:redir_object = s:EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_expression_user )
 	endif
-	call s:DebugMessage( l:debug_message_prefix . 'l:do_redir_now_flag: ' . string( l:do_redir_now_flag ) . ', l:success: ' . string( l:success ) . ', l:file_escaped: ' . string( l:file_escaped ) )
-	if l:success && ( ! empty( l:file_escaped ) )
+	call s:DebugMessage( l:debug_message_prefix . 'l:do_redir_now_flag: ' . string( l:do_redir_now_flag ) . ', l:success: ' . string( l:success ) . ', l:redir_object: ' . string( l:redir_object ) )
+	if l:success && ( ! empty( l:redir_object ) )
 		call s:DebugMessage( l:debug_message_prefix . ' got a filename to redirect to' )
-		let l:file_escaped = s:EVLibTest_Local_fnameescape( l:file_escaped )
 		if l:do_redir_now_flag
-			let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:file_escaped, l:redir_overwrite_flag )
+			let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( l:redir_object, l:redir_overwrite_flag )
 		endif
 		" note: purposedly writing these other (globally/script
 		"  scoped) variables
 		if l:success
-			call s:DebugMessage( l:debug_message_prefix . ' saving l:file_escaped: ' . string( l:file_escaped ) )
-			let s:evlib_test_base_global_outputtofile_lastfile_escaped = l:file_escaped
+			call s:DebugMessage( l:debug_message_prefix . ' saving l:redir_object: ' . string( l:redir_object ) )
+			unlet! s:evlib_test_base_global_outputredir_object_last
+			let s:evlib_test_base_global_outputredir_object_last = l:redir_object
 		endif
 	endif
 
@@ -230,11 +342,13 @@ function! s:EVLibTest_TestOutput_Reopen( ... )
 	let l:redir_overwrite_flag = ( ( a:0 > 0 ) ? a:1 : ( 0 ) )
 
 	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
-	let l:success = l:success && exists( 's:evlib_test_base_global_outputtofile_lastfile_escaped' ) && ( ! empty( s:evlib_test_base_global_outputtofile_lastfile_escaped ) )
+	" note: technically, we don't need to check for 'empty(object)', as it
+	"  should be picked up by s:EVLibTest_TestOutput_Do_Redir()
+	let l:success = l:success && exists( 's:evlib_test_base_global_outputredir_object_last' ) && ( ! empty( s:evlib_test_base_global_outputredir_object_last ) )
 
 	call s:DebugMessage( l:debug_message_prefix . 'l:redir_overwrite_flag: ' . string( l:redir_overwrite_flag ) . ', l:success: ' . string( l:success ) )
 	" do it {{{
-	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_base_global_outputtofile_lastfile_escaped, l:redir_overwrite_flag )
+	let l:success = l:success && s:EVLibTest_TestOutput_Do_Redir( s:evlib_test_base_global_outputredir_object_last, l:redir_overwrite_flag )
 	" }}}
 
 	return l:success

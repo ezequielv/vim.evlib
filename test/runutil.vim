@@ -143,6 +143,30 @@ function! s:EVLibTest_RunUtil_Local_TestOutput_WriteTestContextInfo( processor_d
 	return l:retvalue
 endfunction
 
+function! s:EVLibTest_RunUtil_Local_TestOutput_FlushVarToCurrentBuffer()
+	if exists( 'g:evlib_test_runutil_testoutput_content' )
+		let l:redirecting_flag = s:evlib_test_base_object.f_testoutput_isredirectingtoafile()
+		" flush redirected output into variable
+		if l:redirecting_flag
+			call s:evlib_test_base_object.f_testoutput_close()
+		endif
+
+		" transform the string into a list made of line elements,
+		"  then append each element in that list as a line under
+		"  the last line in the current buffer
+		call append( line( '$' ), split( g:evlib_test_runutil_testoutput_content, '\n' ) )
+
+		" conditionally re-enable redirection (overwriting previous content)
+		if l:redirecting_flag
+			call s:evlib_test_base_object.f_testoutput_reopen( !0 )
+		else
+			" we are not redirecting, so we have to clear up this variable
+			"  manually
+			let g:evlib_test_runutil_testoutput_content = ''
+		endif
+	endif
+endfunction
+
 " }}}
 
 function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
@@ -1295,7 +1319,21 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 							let l:test_output_file = tempname()
 							let l:test_output_file_temp_flag = !0 " true
 						endif
-						if ( ! s:evlib_test_base_object.f_testoutput_initandopen( 0, l:test_output_file ) )
+						" we don't have to use the same output file, so we'll
+						"  make it optional for now (and possibly make it
+						"  forcibly use a variable later)
+						let l:test_output_runutil_redir_use_variable = !0
+						"+ let l:test_output_runutil_redir_use_variable = 0
+						" note: splitting the dictionary definition into
+						"  several lines triggers E685 in vim-7.0
+						" note: ... as does doing that splitting into a
+						"  '( expr ? expr1 : expr2 )' construct
+						if l:test_output_runutil_redir_use_variable
+							let l:test_output_runutil_redir_expression = { 'redir_type': 'var', 'varname': 'g:evlib_test_runutil_testoutput_content', }
+						else
+							let l:test_output_runutil_redir_expression = l:test_output_file
+						endif
+						if ( ! s:evlib_test_base_object.f_testoutput_initandopen( 0, l:test_output_runutil_redir_expression ) )
 							" FIXME: report the error in a way that would be
 							"  picked up by our caller (exception?)
 							break " FIXME: see comment above
@@ -1318,7 +1356,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					"  FIXME: and make that a folding group ("test info", etc.)
 					execute l:test_ex_command_pref . 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
 
-					" truncate l:test_output_file before starting to
+					" truncate the file/variable/register before starting to
 					"  process this test file group
 					call s:evlib_test_base_object.f_testoutput_reopen( !0 )
 					call s:evlib_test_base_object.f_testoutput_close()
@@ -1330,6 +1368,19 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" run all tests for each (vim) program {{{
 					for l:program_now in l:programs_list
 						" per-program initialisation {{{
+						"
+						" FIXME: invoke vim using a temporary (another
+						"  temporary file, possibly *not* user-overrideable)
+						"  vim script, so we don't need OS support for long
+						"  commands, we don't suffer with OS-specific escaping
+						"  (for non-filenames), etc.
+						"
+						"  NOTE: some arguments should remain arguments
+						"   ('-u NONE', '-e', etc.), but the '-c {expr}' are
+						"   obvious candidates to go in the vim script file.
+						"
+						"  NOTE: use writefile() (see ':h writefile()')
+						"
 						let l:progoptions_pref_list = [
 								\		l:program_now, '-f',
 								\		'-e',
@@ -1338,6 +1389,9 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 								\		'-u', 'NONE',
 								\		'-c', ''
 								\			. 'let g:evlib_test_outputfile="' . l:test_output_file . '"'
+								\			,
+								\		'-c', ''
+								\			. 'let g:evlib_test_outputfile_truncate=' . l:test_output_runutil_redir_use_variable
 								\			,
 								\		'-c', ''
 								\			. 'let g:evlib_test_info_contextlevelbase=' . 3
@@ -1416,7 +1470,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 										\	.		l:progoptions_suff_string
 								if l:verbose_flag
 									execute l:test_ex_command_pref
-											\	.	'! ls -l ' . l:test_output_file
+											\	.	'! ls -l ' . s:EVLibTest_Local_fnameescape( l:test_output_file )
 								endif
 							catch " all exceptions
 								" FIXME: record an error string if the test failed (do it in a way
@@ -1425,6 +1479,23 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 								" FIXME: re-enable redirection here
 							endtry
 							" }}}
+							" append the in-memory redirected output to the current
+							"  "test output" buffer {{{
+							if l:test_output_runutil_redir_use_variable
+								call s:EVLibTest_RunUtil_Local_TestOutput_FlushVarToCurrentBuffer()
+
+								if filereadable( l:test_output_file )
+									" add the test produced file to the end of
+									"  the current buffer (test output)
+									execute l:test_ex_command_pref . '$r ' . s:EVLibTest_Local_fnameescape( l:test_output_file )
+									" note: no need to delete the file, as
+									"  every test execution will truncate the
+									"  file, if it exists
+									"  (and there is a 'delete()' in the right
+									"  place, below)
+								endif
+							endif
+							" }}}
 							" [debug]: throw 'oops'
 						endfor
 						" }}}
@@ -1432,11 +1503,13 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" }}}
 					" process the temporary file {{{
 					if filereadable( l:test_output_file )
-						" split/create tab, set new buffer attributes
-						execute l:test_ex_command_pref . '0r ' . l:test_output_file
-						" remove the last line (which should be empty), which
-						"  should belong to the original "clean" buffer
-						silent $d
+						if ! l:test_output_runutil_redir_use_variable
+							" split/create tab, set new buffer attributes
+							execute l:test_ex_command_pref . '0r ' . s:EVLibTest_Local_fnameescape( l:test_output_file )
+							" remove the last line (which should be empty), which
+							"  should belong to the original "clean" buffer
+							silent $d
+						endif
 						" if we have to (temporary file: always, user file:
 						"  when?), truncate/delete the file, or make sure that the
 						"  next invocation/use will overwrite the file, as opposed

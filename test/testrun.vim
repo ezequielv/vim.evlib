@@ -168,7 +168,15 @@ unlet s:cpo_save
 try
 	" 'try' block {{{
 
-	call s:evlib_test_base_object.f_testoutput_initandopen()
+	" args:
+	"  redir_now_flag (true),
+	"  redir_expression (empty -> use auto-detection),
+	"  redir_overwrite_flag (from global variable)
+	call s:evlib_test_base_object.f_testoutput_initandopen(
+				\		!0,
+				\		'',
+				\		( exists( 'g:evlib_test_outputfile_truncate' ) && ( g:evlib_test_outputfile_truncate ) )
+				\	)
 
 	call s:DebugMessage( 'testrun.vim: executing non-function code' )
 
