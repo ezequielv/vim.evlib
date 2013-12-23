@@ -23,6 +23,22 @@ execute 'source ' . fnamemodify( expand( '<sfile>' ), ':p:h' ) . '/' . 'c-defs.v
 let b:evlib_test_evtest_evtstd_base_object = deepcopy( g:evlib_test_evtest_evtstd_base_object_last )
 " }}}
 
+" FIXME: implement properly
+" FIXME: probably make the primary output functions (f_writetestcontextinfo
+"  (already created), and f_writeoutputline (from
+"  EVLibTest_TestOutput_OutputLine(), in 'common.vim') belong in here, so that
+"  all the "proper" users have access to these functions)
+function! b:EVLibTest_Processor_Invoked_evtstd_TestOutput_WriteTestContextInfo( function_args )
+	let l:context_level = ( has_key( a:function_args, 'contextlevel' ) ? ( a:function_args.contextlevel ) : 1 )
+	let l:info_string = ( has_key( a:function_args, 'info' ) ? ( a:function_args.info ) : '' )
+	" FIXME: use the equivalent to EVLibTest_TestOutput_OutputLine() {{{
+	echomsg ' '
+	" leave a blank line (just the prefix) if the 'info' element is empty
+	echomsg b:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string . ( empty( l:info_string ) ? '' : ( 'INFO #' . l:context_level . ': ' . l:info_string ) )
+	" }}}
+	return !0
+endfunction
+
 function! b:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 	" save previous search
 	let l:saved_register_search = @/
@@ -514,6 +530,7 @@ endfunction
 " set output variable
 let g:evlib_test_processor_output = {
 			\		'functions': {
+			\				'f_writetestcontextinfo': function( 'b:EVLibTest_Processor_Invoked_evtstd_TestOutput_WriteTestContextInfo' ),
 			\				'f_process_output': function( 'b:EVLibTest_RunUtil_TestOutput_Process' ),
 			\			},
 			\	}

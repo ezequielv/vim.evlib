@@ -83,7 +83,15 @@ function! s:EVLibTest_Local_fnameescape( fname )
 	endif
 endfunction
 
+" TODO: remove function, as I'm not sure it works 100% of the time
+"  (seems to /sometimes/ work, so it's probably hitting a vim bug or working
+"  those times for the wrong reasons)
 function! s:Local_DefineFunctionFromFuncRef( fname, funcref )
+	let l:debug_message_prefix = 's:Local_DefineFunctionFromFuncRef(): '
+
+	if ( ! ( type( a:funcref ) == type( function( 's:Local_DefineFunctionFromFuncRef' ) ) ) )
+		call s:DebugMessage( l:debug_message_prefix . 'invalid type for a:funcref: ' . string( type( a:funcref ) ) )
+	endif
 	for l:func_now in [ a:fname, 's:' . a:fname ]
 		try
 			execute 'delfunction ' . l:func_now
@@ -95,23 +103,47 @@ function! s:Local_DefineFunctionFromFuncRef( fname, funcref )
 	execute 'let s:' . a:fname . ' = a:funcref'
 endfunction
 
-" create mappings as if they were the real functions (see ':h Funcref') {{{
-call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_OptionalGetRedirFilename', s:evlib_test_base_object.f_testoutput_optionalgetredirfilename )
-call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_InitAndOpen', s:evlib_test_base_object.f_testoutput_initandopen )
-call s:Local_DefineFunctionFromFuncRef( 'EVLibTest_TestOutput_Close', s:evlib_test_base_object.f_testoutput_close )
-" }}}
-
 " global/script-local variables {{{
 let s:evlib_test_local_evtest_main_subdir_name = 'evtest'
 " }}}
 
-" note: this used to be the "front-end" function
-function! s:EVLibTest_RunUtil_TestOutput_Process()
-	" NOTE: we now have deferred processing to a script associated to a group
-	"  of test files -- therefore, the need of merely "processing a
-	"  previously run test output buffer" is no longer /that/ strong ->
-	"  "no-op"-ing this now
+" high-level (script-local) test output functions {{{
+
+function! s:EVLibTest_RunUtil_Local_TestOutput_InvokeWithRedir_Start()
+	let l:redirecting_flag = s:evlib_test_base_object.f_testoutput_isredirectingtoafile()
+	let l:startdict = {
+				\		'saved': {
+				\				'redir_active': l:redirecting_flag,
+				\			},
+				\	}
+	" enable redirection (if not enabled before)
+	if ( ! l:redirecting_flag )
+		" FIXME: improve error handling (possibly recording the result of the
+		"  f_testoutput_reopen() call, rather than 'redir_active' entry,
+		"  above)
+		call s:evlib_test_base_object.f_testoutput_reopen()
+	endif
+
+	return l:startdict
 endfunction
+
+function! s:EVLibTest_RunUtil_Local_TestOutput_InvokeWithRedir_End( startdict )
+	if ( ! a:startdict.saved.redir_active )
+		call s:evlib_test_base_object.f_testoutput_close()
+	endif
+endfunction
+
+function! s:EVLibTest_RunUtil_Local_TestOutput_WriteTestContextInfo( processor_defs_data, contextlevel, infostring )
+	let l:startdict = s:EVLibTest_RunUtil_Local_TestOutput_InvokeWithRedir_Start()
+
+	" call user-level 'exported' function
+	let l:retvalue = s:evlib_test_base_object.f_processordef_usercall_writetestcontextinfo( a:processor_defs_data, a:contextlevel, a:infostring )
+
+	call s:EVLibTest_RunUtil_Local_TestOutput_InvokeWithRedir_End( l:startdict )
+	return l:retvalue
+endfunction
+
+" }}}
 
 function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
 	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\\"" )' ), ' ' )
@@ -391,282 +423,6 @@ function! s:EVLibTest_RunUtil_Local_ProcessorsGroupsList_SortFun( v1, v2 )
 	return s:EVLibTest_RunUtil_Local_SortFun_NormaliseCompResult( ( v1.sort_index - v2.sort_index ) )
 endfunction
 
-function! s:EVLibTest_RunUtil_Local_GenUserScript_ClearVars( var_names )
-	for l:var_name_now in a:var_names
-		if exists( l:var_name_now )
-			execute 'unlet! ' . l:var_name_now
-		endif
-	endfor
-endfunction
-
-" this function provides a generic way to "source" a vim script, using
-"  variables with predefined names for input ("to_script") and outout
-"  ("from_script")
-"
-" this function:
-"  * provides a "safe" way to source those scripts (catching exceptions);
-"  * clears out previous values for the "input" and "output" variable names
-"     before "sourcing" the script;
-"  * perform the assignments on behalf of this function's callers, so that the
-"    script being "sourced" is guaranteed a consistent environment in which to
-"    run;
-"  * clears out previous values for the "input" and "output" variable names
-"     after "sourcing" the script;
-"
-" args:
-"  * vars_to_script: dictionary with elements following this format:
-"     { VARIABLE_NAME, VARIABLE_VALUE }
-"     where VARIABLE_NAME is a string (usually 'g:some_variable_name'), and
-"      VARIABLE_VALUE is of any valid type.  the VARIABLE_VALUE is usually
-"      'deepcopy()'-ed, for maximum separation between the caller and the
-"      sourced script;
-"  * vars_from_script: list of strings, each being a VARIABLE_NAME;
-"
-" return value:
-"  * a dictionary consisting of elements with the following keys:
-"  * 'sourced': "boolean" (==0, !=0 integer) (equivalent to dictionary.'procexittype' == 'ok');
-"  * 'procexittype': one of the following: 'notsourced', 'ok', 'exception'
-"  * 'variables': a dictionary, with keys equal to the elements passed in
-"     vars_from_script.  if a variable was not set by the user script, it will
-"     not exist as a key in this dictionary (this behaviour might change in
-"     the future);
-function! s:EVLibTest_RunUtil_Local_GenUserScript_Source( scriptname, vars_to_script, vars_from_script )
-	let l:debug_message_prefix = 's:EVLibTest_RunUtil_Local_GenUserScript_Source(): '
-
-	let l:success = !0 " true
-	let l:ret_procexittype = 'notsourced'
-	let l:ret_variables = {}
-
-	let l:success = l:success && filereadable( a:scriptname )
-	call s:DebugMessage( l:debug_message_prefix . 'l:success: ' . string( l:success ) )
-
-	let l:inputoutput_varnames = keys( a:vars_to_script ) + a:vars_from_script
-	call s:DebugMessage( l:debug_message_prefix . 'l:inputoutput_varnames: ' . string( l:inputoutput_varnames ) )
-
-	" clear all input/output variables
-	call s:EVLibTest_RunUtil_Local_GenUserScript_ClearVars( l:inputoutput_varnames )
-
-	if l:success
-		for l:var_name_now in keys( a:vars_to_script )
-			execute 'let ' . l:var_name_now . ' = deepcopy( a:vars_to_script[ l:var_name_now ] )'
-		endfor
-	endif
-
-	if l:success
-		try
-			let l:ret_procexittype = 'ok'
-			" TODO: se if we can make the 'source' non-silent, if needed
-			execute 'silent source ' . s:EVLibTest_Local_fnameescape( a:scriptname )
-			call s:DebugMessage( l:debug_message_prefix . 'sourced "' . a:scriptname . '" successfully' )
-		catch
-			call s:DebugMessage( l:debug_message_prefix . 'sourcing "' . a:scriptname . '" threw an exception' )
-			let l:ret_procexittype = 'exception'
-		endtry
-	endif
-
-	if l:success
-		for l:var_name_now in a:vars_from_script
-			if exists( l:var_name_now )
-				let l:ret_variables[ l:var_name_now ] = eval( l:var_name_now )
-			endif
-		endfor
-	endif
-
-	" clear all input/output variables
-	call s:EVLibTest_RunUtil_Local_GenUserScript_ClearVars( l:inputoutput_varnames )
-
-	" fill out return value(s) {{{
-	let l:retdict = {}
-	let l:retdict.sourced = ( l:ret_procexittype == 'ok' )
-	let l:retdict.procexittype = l:ret_procexittype
-	if ( l:retdict.sourced )
-		let l:retdict.variables = l:ret_variables
-	endif
-	" }}}
-
-	return l:retdict
-endfunction
-
-" reference:
-"
-" scripts implementing the functions to be invoked should communicate with
-"  this module (or any caller) through the following protocol:
-"
-" environment:
-"  the processing scripts are executed with the "output" buffer currently
-"  active.  this means, amongst other things, that the buffer can be used to
-"  store variables and functions, as it will be the buffer that will contain
-"  the test output.
-"
-" * no buffer switching is allowed;
-" * no buffer content/state/option manipulation is allowed;
-"
-" for the moment, all scripts can use the following variable scopes:
-"
-"  g: (global): for communicating with the calling script(s), and only using
-"   the variable names described below;
-"
-"  s: (script): for short-lived variables (like s:cpo_save), but it's
-"   recommended *not* to instanciate permanent variables and/or functions on
-"   this scope;
-"
-"  b: (buffer): for everything that does not fall in the categories defined
-"   above. in particular, it's recommended to define in this scope:
-"   * functions (such as the one to be used for 'foldexpr', 'foldtext', etc.);
-"   * variables: anything that the processing script might need in the
-"      "global" (ie., non-"local" ('l:') scope);
-"
-"  input:
-"   * g:evlib_test_processor_operation
-"      one of:
-"       * 'define_functions'
-"        * input: there is currently no input (dictionary is empty);
-"        * output: a dictionary with the following keys:
-"         * 'functions': a dictionary that has elements following this format:
-"          { FUNCTION_NAME, FUNCREF_FOR_FUNCTION_NAME }
-"          * for each FUNCTION_NAME, the inputs and outputs should be
-"             well-defined, and consistent across all processor scripts.
-"
-"   * g:evlib_test_processor_input
-"      a dictionary whose actual keys will be dependant on the operation the
-"      script is asked to do.
-"
-"   * g:evlib_test_processor_output
-
-" s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke() {{{
-"
-" invokes the user function whose name is given in a:function_name, passing a
-"  single parameter (the dictionary specified in a:function_args), and
-"  returning its value (as an element in the dictionary returned by this
-"  function).
-"
-" args:
-" * processor_defs_data [in/out]: read and conditionally updated by this
-"    function;
-" * function_name: string describing the Funcref member to be invoked;
-" * function_args: dictionary with the argument for the function_name
-"    function.
-"  * the actual keys, the value types, etc. should all be defined at the
-"     function declaration level (see the reference for that);
-"
-" returns:
-" * a dictionary consisting of elements with the following keys:
-"  * 'invoked': "boolean" (==0, !=0 integer);
-"  * 'retvalue' (when 'invoked' != 0): value as returned from the invoked
-"     function (will probably be a dictionary itself);
-"
-" side effects:
-" * will throw if there is an unrecoverable error;
-" * will do nothing if the function is not defined;
-"
-function! s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke( processor_defs_data, function_name, function_args )
-	let l:debug_message_prefix = 's:EVLibTest_RunUtil_Local_ProcessorDef_Invoke(): '
-
-	let l:success = !0 " true
-	let l:ret_invoked = 0 " false
-	" avoid trying to source the file if we've tried before and failed
-	let l:process_source_script_flag = (
-				\		( ! has_key( a:processor_defs_data, 'functions' ) )
-				\		&&
-				\		( ! has_key( a:processor_defs_data, 'sourced_processor_script' ) )
-				\	)
-
-	call s:DebugMessage( l:debug_message_prefix . 'l:process_source_script_flag: ' . string( l:process_source_script_flag ) )
-	" 'source' the script if we need to
-	if l:success && ( l:process_source_script_flag )
-		" attempt to process the script to define the functions
-		let l:source_ret_value = s:EVLibTest_RunUtil_Local_GenUserScript_Source(
-					\		a:processor_defs_data.processor_script,
-					\		{
-					\			'g:evlib_test_processor_operation': 'define_functions',
-					\			'g:evlib_test_processor_input': {},
-					\		},
-					\		[
-					\			'g:evlib_test_processor_output',
-					\		]
-					\	)
-		let l:success = l:success && ( l:source_ret_value.procexittype == 'ok' )
-		" whatever happened, we flag that we've tried
-		let a:processor_defs_data.sourced_processor_script = !0 " true
-		call s:DebugMessage( l:debug_message_prefix . ' called s:EVLibTest_RunUtil_Local_GenUserScript_Source(). l:success: ' . string( l:success ) )
-
-		if l:success
-			let l:sourced_output_dict = l:source_ret_value.variables[ 'g:evlib_test_processor_output' ]
-			let l:sourced_output_dict_keys = keys( l:sourced_output_dict )
-		endif
-		" make sure we've got the required keys in the output dictionary
-		"  (removes the elements that it finds, and makes sure that there are
-		"  no leftovers)
-		let l:success = l:success && empty(
-					\		filter(
-					\				copy( [
-					\						'functions',
-					\					] ),
-					\				'( ! ( index( l:sourced_output_dict_keys, v:val ) >= 0 ) )'
-					\			)
-					\	)
-		call s:DebugMessage( l:debug_message_prefix . ' checked required keys. l:success: ' . string( l:success ) )
-
-		" TODO: validate the needed functions to consider the processor
-		"  "sourcing" successful
-
-		" copy the values into the user's processor_defs_data
-		if l:success
-			for l:ret_key_now in [
-					\		'functions',
-					\	]
-				let a:processor_defs_data[ l:ret_key_now ] = l:sourced_output_dict[ l:ret_key_now ]
-			endfor
-		endif
-
-		call s:DebugMessage( l:debug_message_prefix . ' finished processor script processing. l:success: ' . string( l:success ) )
-	endif
-
-	" at this point, we may have sourced the script now, or maybe we've tried
-	"  before -> refresh 'success' state
-	let l:success = l:success && ( has_key( a:processor_defs_data, 'functions' ) )
-	call s:DebugMessage( l:debug_message_prefix . 'checked required keys. l:success: ' . string( l:success ) )
-
-	" invoke the function requested by the user
-	if l:success
-		let l:processor_functions_dict = a:processor_defs_data.functions
-		" if the function is not found, we'll reset 'success' for now
-		"  (this could also be moved to the 'if' below, so that no variable
-		"  gets changed, whilst still maintaining the function call
-		"  conditional)
-		let l:success = l:success && ( has_key( l:processor_functions_dict, a:function_name ) )
-	endif
-
-	if l:success
-		" NOTE: for now, make 'invoke' mean "successfully executed", not just
-		"  "I've made a call to that function, and that is no guarantee as to
-		"  whether it worked"
-		try
-			call s:DebugMessage( l:debug_message_prefix . 'about to call "' . a:function_name . '( ' . string( a:function_args ) . ' )"' )
-			" attempt to call the Funcref stored in the dictionary entry
-			let l:ret_value = l:processor_functions_dict[ a:function_name ]( a:function_args )
-			let l:ret_invoked = !0 " true
-		catch
-			" do nothing in particular, as l:ret_invoked should remain == 0
-			call s:DebugMessage( l:debug_message_prefix . 'invoking the function ' . string( a:function_name ) . ' has thrown an exception' )
-			call s:DebugExceptionCaught()
-		endtry
-		let l:success = l:success && l:ret_invoked
-	endif
-
-	" epilog: prepare the return value (dictionary)
-	let l:retdict = {
-				\		'invoked': l:ret_invoked,
-				\	}
-	if l:ret_invoked
-		let l:retdict.retvalue = l:ret_value
-	endif
-
-	call s:DebugMessage( l:debug_message_prefix . 'returning: ' . string( l:retdict ) )
-	return l:retdict
-endfunction
-" }}}
-
 " data structures:
 " 	s:evlib_test_local_processors_defs_dict = {
 " 			'evtstd': {
@@ -887,10 +643,6 @@ function! s:EVLibTest_RunUtil_Local_PopulateProcessorDefs( test_files )
 									"  major version, but from the first
 									"  available minor version for that major
 									"  version ('x.0.0')
-									" prev: let l:version_range_start = copy( l:version_from_file_list )
-									" prev: " note: assigning to an inexisting list index seems to be an operation without side effects
-									" prev: let l:version_range_start[ 1 ] = 0
-									" prev: let l:version_range_start[ 2 ] = 0
 									let l:version_range_start = [ l:version_from_file_list[ 0 ], 0, 0 ]
 
 									call s:DebugMessage( '  about to add processor_defs element with version: ' . string( l:version_from_file_list ) )
@@ -1450,9 +1202,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 								break
 							endif
 						endfor
-						"- prev: used: ( ! empty( l:processors_defs_dict_entry_leafentries_ref ) )
 						if ( l:process_found_processors_defs_dict_entry_for_this_version_flag )
-							"- prev: \		l:processors_defs_dict_entry_leafentries_ref
 							call s:EVLibTest_RunUtil_Local_ProcGroupsElemSetup_Common(
 										\		l:test_processors_groups_list_elem_commit,
 										\		l:test_processors_to_files_map_key_now,
@@ -1539,13 +1289,13 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				try
 					" one-time initialisations {{{
 					if ( ! l:test_output_init_flag )
-						let l:test_output_file = s:EVLibTest_TestOutput_OptionalGetRedirFilename()
+						let l:test_output_file = s:evlib_test_base_object.f_testoutput_optionalgetredirfilename()
 						if ( empty( l:test_output_file ) )
 							" create a temporary file
 							let l:test_output_file = tempname()
 							let l:test_output_file_temp_flag = !0 " true
 						endif
-						if ( ! s:EVLibTest_TestOutput_InitAndOpen( 0 ) )
+						if ( ! s:evlib_test_base_object.f_testoutput_initandopen( 0, l:test_output_file ) )
 							" FIXME: report the error in a way that would be
 							"  picked up by our caller (exception?)
 							break " FIXME: see comment above
@@ -1555,13 +1305,6 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					" }}}
 
 					" per-processor initialisation {{{
-					" FIXME: truncate l:test_output_file before starting to
-					"  process this test file group
-					"  NOTE: we could call EVLibTest_TestOutput_InitAndOpen()
-					"   with redir_overwrite_flag == true;
-					"  NOTE: we could call EVLibTest_TestOutput_Reopen()
-					"   with redir_overwrite_flag == true;
-
 					if l:test_processing_use_tabs
 						" create new tab (with new buffer)
 						silent tabedit
@@ -1574,6 +1317,11 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 					"  for example (with one of those 'INFO:' lines?)
 					"  FIXME: and make that a folding group ("test info", etc.)
 					execute l:test_ex_command_pref . 'file ' . '{test-output-' . printf( '%04d', g:evlib_test_runtest_id ) . '}'
+
+					" truncate l:test_output_file before starting to
+					"  process this test file group
+					call s:evlib_test_base_object.f_testoutput_reopen( !0 )
+					call s:evlib_test_base_object.f_testoutput_close()
 					" }}}
 
 					" MAYBE: we could initialise 'processor'-related
@@ -1590,6 +1338,9 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 								\		'-u', 'NONE',
 								\		'-c', ''
 								\			. 'let g:evlib_test_outputfile="' . l:test_output_file . '"'
+								\			,
+								\		'-c', ''
+								\			. 'let g:evlib_test_info_contextlevelbase=' . 3
 								\			,
 								\	]
 						if s:evlib_test_runutil_debug
@@ -1620,14 +1371,21 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 						let l:progoptions_suff_string = s:EVLibTest_RunUtil_Util_JoinCmdArgs( l:progoptions_suff_list )
 						" }}}
 
-						" FIXME: write information about the (vim) program currently being used
+						" write information about the (vim) program currently being used
+						call s:EVLibTest_RunUtil_Local_TestOutput_WriteTestContextInfo(
+								\		l:processor_defs_data,
+								\		1,
+								\		'vim program: ' . string( l:program_now )
+								\	)
 
 						" run all tests {{{
 						for l:test_file_now in l:test_processors_groups_elem_now.files
 							" validate current file {{{
 							if ( ! filereadable( l:test_file_now ) )
 								" FIXME: report the error in l:test_output_file in a way that
-								"  will be picked up by s:EVLibTest_RunUtil_TestOutput_Process()
+								"  will be picked up by the test output
+								"  processor
+								"  (s:evlib_test_base_object.f_process_output())
 
 								" do not process this file
 								continue
@@ -1636,6 +1394,11 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 							" run vim with the right parameters {{{
 							try
 								" FIXME: write information about the test to be run here
+								call s:EVLibTest_RunUtil_Local_TestOutput_WriteTestContextInfo(
+										\		l:processor_defs_data,
+										\		2,
+										\		'about to execute test file: ' . string( l:test_file_now )
+										\	)
 
 								" FIXME: stop redirection here
 
@@ -1682,7 +1445,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 							call delete( l:test_output_file ) " ignore rc for now
 						endif
 						" FIXME: do proper error handling (do not discard return value)
-						call s:EVLibTest_RunUtil_Local_ProcessorDef_Invoke(
+						call s:evlib_test_base_object.f_processordef_invoke(
 									\		l:processor_defs_data,
 									\		'f_process_output',
 									\		{}
@@ -1731,7 +1494,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 			" FIXME: re-throw the exception
 		finally
 			if l:test_output_redirecting_flag
-				call s:EVLibTest_TestOutput_Close()
+				call s:evlib_test_base_object.f_testoutput_close()
 				let l:test_output_redirecting_flag = 0 " false
 			endif
 			if l:test_output_file_temp_flag && ( ! empty( l:test_output_file ) )

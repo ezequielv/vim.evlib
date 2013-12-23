@@ -70,6 +70,53 @@ let s:evlib_test_base_object = g:evlib_test_base_object_last
 
 " }}}
 
+" test "processor" functions {{{
+
+let s:evlib_test_local_test_processor_info_contextlevel_base = ( exists( 'g:evlib_test_info_contextlevelbase' ) ? ( g:evlib_test_info_contextlevelbase ) : 1 )
+
+function! s:EVLibTest_CurrentProcessor_GetInstance()
+	if ( ! exists( 's:evlib_test_local_test_processor_defs_data' ) )
+		" FIXME: get the processor from the 'g:' variable
+		" note: this dictionary instance will be updated by the invoked
+		"  function, below
+		let s:evlib_test_local_test_processor_defs_data = {
+					\		'processor_script': s:evlib_test_testrun_testdir . '/' . 'evtest/proc/evtstd/v0-1-0.vim',
+					\	}
+	endif
+	return s:evlib_test_local_test_processor_defs_data
+endfunction
+
+" real documentation: see EVLibTest_ProcessorDef_Invoke() ('test/base.vim')
+function! s:EVLibTest_CurrentProcessor_Invoke( function_name, function_args )
+	" forward to the real function, passing our 'processor_defs_data'
+	return s:evlib_test_base_object.f_processordef_invoke(
+				\		s:EVLibTest_CurrentProcessor_GetInstance(),
+				\		a:function_name,
+				\		a:function_args
+				\	)
+endfunction
+
+" real documentation: see EVLibTest_ProcessorDef_UserCall_WriteTestContextInfo() ('test/base.vim')
+function! s:EVLibTest_CurrentProcessor_UserCall_WriteTestContextInfo( contextlevel_offset, infostring )
+	" forward to the real function, passing our 'processor_defs_data'
+	return s:evlib_test_base_object.f_processordef_usercall_writetestcontextinfo(
+				\		s:EVLibTest_CurrentProcessor_GetInstance(),
+				\		s:evlib_test_local_test_processor_info_contextlevel_base + a:contextlevel_offset,
+				\		'[testrunning] ' . a:infostring
+				\	)
+endfunction
+
+function! s:EVLibTest_CurrentProcessor_UserCall_WriteTestBlankLine()
+	" forward to the real function, passing our 'processor_defs_data'
+	return s:evlib_test_base_object.f_processordef_usercall_writetestcontextinfo(
+				\		s:EVLibTest_CurrentProcessor_GetInstance(),
+				\		s:evlib_test_local_test_processor_info_contextlevel_base,
+				\		''
+				\	)
+endfunction
+
+" }}}
+
 " main functions {{{
 
 function s:EVLibTest_TestRunner_RunTestAuto()
@@ -79,16 +126,6 @@ function s:EVLibTest_TestRunner_RunTestAuto()
 	call s:DebugMessage( l:debug_message_prefix . 'entered' )
 
 	try
-		" FIXME: start redirection to a file, if needed
-		"  FIXME: move the redirection to this file, instead of having it in
-		"   'test/base.vim' (but somehow store which file it is being
-		"   redirected to -- maybe by refactoring 'test/base.vim' so that we
-		"   have access to the functions needed from here, and our own 'evlib'
-		"   tests have access to the "other" functions/variables)
-		"  NOTE: this will mean that tests do not need to initialise the
-		"   redirection anymore (they are currently doing that by including
-		"   'test/common.vim', which includes 'test/base.vim')
-
 		if l:success
 			let l:testscript = g:evlib_test_testrunner_testscript
 			let l:testscript_escaped = s:EVLibTest_Local_fnameescape( l:testscript )
@@ -98,6 +135,11 @@ function s:EVLibTest_TestRunner_RunTestAuto()
 				call s:DebugMessage( l:debug_message_prefix . 'about to "source" file "' . l:testscript . '" (readable: ' . string( filereadable( l:testscript ) ) . ', escaped: ' . l:testscript_escaped . ')' )
 				call s:DebugMessage( l:debug_message_prefix . 'escaped: <' . l:testscript_escaped . '>' )
 			endif
+			call s:EVLibTest_CurrentProcessor_UserCall_WriteTestContextInfo( 0, 'about to source file: ' . string( l:testscript ) )
+
+			" MAYBE: TODO: leave this blank line to each test (in our case,
+			"  'common.vim') script to add, if desired.
+			call s:EVLibTest_CurrentProcessor_UserCall_WriteTestBlankLine()
 			execute 'source ' . l:testscript_escaped
 		endif
 	catch
@@ -108,6 +150,10 @@ function s:EVLibTest_TestRunner_RunTestAuto()
 	call s:DebugMessage( l:debug_message_prefix . 'exiting' )
 	return l:success
 endfunction
+
+" }}}
+
+" 'exported' functions {{{
 
 " }}}
 
