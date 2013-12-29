@@ -67,12 +67,12 @@ function! EVLibTest_Module_Load( v1 )
 	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_module_load', 1, [] )
 endfunction
 
-function! EVLibTest_TestOutput_IsRedirectingToAFile()
-	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_isredirectingtoafile', 0, [] )
+function! EVLibTest_TestOutput_IsRedirectingOutput()
+	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_isredirectingoutput', 0, [] )
 endfunction
 
-function! EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
-	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_optionalgetredirfilename', 0, [ '' ] )
+function! EVLibTest_TestOutput_OptionalGetRedirExpression( ... )
+	execute EVLibTest_CodeGen_CallFunction( 's:evlib_test_base_object.f_testoutput_optionalgetredirexpression', 0, [ '' ] )
 endfunction
 
 function! EVLibTest_TestOutput_InitAndOpen( ... )
@@ -131,7 +131,7 @@ function! EVLibTest_TestOutput_OutputLine( msg )
 	" fix: when redirecting to a file, make sure that we start each message on
 	"  a new line (error messages sometimes have a '<CR>' at the end, which
 	"  means that the next line will start at column > 1)
-	if EVLibTest_TestOutput_IsRedirectingToAFile()
+	if EVLibTest_TestOutput_IsRedirectingOutput()
 		silent echomsg ' '
 		let l:cmdprefix = 'silent '
 	else
@@ -457,7 +457,7 @@ function EVLibTest_Test_EndCommon( msg_result )
 
 		let l:message_unpadded_len = strlen( s:EVLibTest_TestOutput_GetFormattedLinePrefix() ) + strlen( l:message_start ) + strlen( l:message_end_result )
 		" leave a small gap at the end -- just in case
-		let l:columns = ( EVLibTest_TestOutput_IsRedirectingToAFile() ? 76 : min( [ &columns, 100 ] ) ) - 1
+		let l:columns = ( EVLibTest_TestOutput_IsRedirectingOutput() ? 76 : min( [ &columns, 100 ] ) ) - 1
 		if ( l:message_unpadded_len < l:columns )
 			let l:filler_len = ( l:columns - l:message_unpadded_len )
 			let l:filler_string = repeat( ' ', ( l:filler_len % l:filler_string_one_len ) ) . repeat( l:filler_string_one, ( l:filler_len / l:filler_string_one_len ) )

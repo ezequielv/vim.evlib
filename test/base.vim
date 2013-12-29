@@ -92,13 +92,13 @@ endfunction
 " }}}
 " }}}
 
-" support for writing the results to a file {{{
-let s:evlib_test_base_global_outputtofile_flag = 0
+" support for output redirection {{{
+let s:evlib_test_base_global_outputredir_flag = 0
 unlet! s:evlib_test_base_global_outputredir_object_last
 let s:evlib_test_base_global_outputredir_object_last = ''
 
-function! s:EVLibTest_TestOutput_IsRedirectingToAFile()
-	return ( s:evlib_test_base_global_outputtofile_flag != 0 )
+function! s:EVLibTest_TestOutput_IsRedirectingOutput()
+	return ( s:evlib_test_base_global_outputredir_flag != 0 )
 endfunction
 
 " args:
@@ -135,7 +135,7 @@ function! s:EVLibTest_TestOutput_NormaliseValidateRedirExpr( redir_expression )
 		endif
 	endif
 
-	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingOutput() )
 
 	" make sure the src entry is valid {{{
 	let l:success = l:success && ( has_key( l:redir_dict, 'redir_type' ) )
@@ -209,16 +209,12 @@ function! s:EVLibTest_TestOutput_Do_Redir( redir_expression, ... )
 			let l:success = 0 " false
 		endif
 		if l:success
-			let s:evlib_test_base_global_outputtofile_flag = 1
+			let s:evlib_test_base_global_outputredir_flag = 1
 		endif
 	endif
 	return l:success
 endfunction
 
-" FIXME: rename this function: s:EVLibTest_TestOutput_OptionalGetRedirFilename() -> s:EVLibTest_TestOutput_OptionalGetRedirExpression()
-"  FIXME: rename the "exported" dictionary entry accordingly
-"  FIXME: grep for the callers/users of the above, and change accordingly
-"
 " args: [ redir_expression ]
 "  * redir_expression: (ignored if empty)
 "
@@ -226,7 +222,7 @@ endfunction
 "  on success, an instance of the right type that can be passed onto other
 "   redirection functions;
 "  on error, an instance that should hold 'empty( return_value )';
-function! s:EVLibTest_TestOutput_OptionalGetRedirFilename( ... )
+function! s:EVLibTest_TestOutput_OptionalGetRedirExpression( ... )
 	let l:success = !0 " true
 	let l:redir_expression_default = ''
 	let l:redir_expression = l:redir_expression_default
@@ -310,10 +306,10 @@ function! s:EVLibTest_TestOutput_InitAndOpen( ... )
 	let l:redir_expression_user = ( ( a:0 > 1 ) ? ( a:2 ) : '' )
 	let l:redir_overwrite_flag = ( ( a:0 > 2 ) ? ( a:3 ) : ( 0 ) )
 
-	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingOutput() )
 
 	if l:success
-		let l:redir_object = s:EVLibTest_TestOutput_OptionalGetRedirFilename( l:redir_expression_user )
+		let l:redir_object = s:EVLibTest_TestOutput_OptionalGetRedirExpression( l:redir_expression_user )
 	endif
 	call s:DebugMessage( l:debug_message_prefix . 'l:do_redir_now_flag: ' . string( l:do_redir_now_flag ) . ', l:success: ' . string( l:success ) . ', l:redir_object: ' . string( l:redir_object ) )
 	if l:success && ( ! empty( l:redir_object ) )
@@ -341,7 +337,7 @@ function! s:EVLibTest_TestOutput_Reopen( ... )
 	let l:success = !0 " true
 	let l:redir_overwrite_flag = ( ( a:0 > 0 ) ? a:1 : ( 0 ) )
 
-	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingToAFile() )
+	let l:success = l:success && ( ! s:EVLibTest_TestOutput_IsRedirectingOutput() )
 	" note: technically, we don't need to check for 'empty(object)', as it
 	"  should be picked up by s:EVLibTest_TestOutput_Do_Redir()
 	let l:success = l:success && exists( 's:evlib_test_base_global_outputredir_object_last' ) && ( ! empty( s:evlib_test_base_global_outputredir_object_last ) )
@@ -357,11 +353,11 @@ endfunction
 function! s:EVLibTest_TestOutput_Close()
 	let l:success = !0 " success
 
-	let l:success = l:success && s:EVLibTest_TestOutput_IsRedirectingToAFile()
+	let l:success = l:success && s:EVLibTest_TestOutput_IsRedirectingOutput()
 	if l:success
 		" end redirection (see ':h :redir')
 		redir END
-		let s:evlib_test_base_global_outputtofile_flag = 0
+		let s:evlib_test_base_global_outputredir_flag = 0
 	endif
 	return l:success
 endfunction
@@ -697,9 +693,9 @@ let s:evlib_test_base_object = {
 		\		'f_testoutput_close':						function( s:funpref . 'EVLibTest_TestOutput_Close' ),
 		\		'f_testoutput_reopen':						function( s:funpref . 'EVLibTest_TestOutput_Reopen' ),
 		\		'f_testoutput_initandopen':					function( s:funpref . 'EVLibTest_TestOutput_InitAndOpen' ),
-		\		'f_testoutput_optionalgetredirfilename':	function( s:funpref . 'EVLibTest_TestOutput_OptionalGetRedirFilename' ),
+		\		'f_testoutput_optionalgetredirexpression':	function( s:funpref . 'EVLibTest_TestOutput_OptionalGetRedirExpression' ),
 		\		'f_testoutput_redir':						function( s:funpref . 'EVLibTest_TestOutput_Do_Redir' ),
-		\		'f_testoutput_isredirectingtoafile':		function( s:funpref . 'EVLibTest_TestOutput_IsRedirectingToAFile' ),
+		\		'f_testoutput_isredirectingoutput':			function( s:funpref . 'EVLibTest_TestOutput_IsRedirectingOutput' ),
 		\
 		\		'f_module_load':							function( s:funpref . 'EVLibTest_Module_Load' ),
 		\		'f_fnameescape':							function( s:funpref . 'EVLibTest_Local_fnameescape' ),
