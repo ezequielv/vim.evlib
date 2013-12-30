@@ -194,7 +194,7 @@ try
 
 	" }}}
 finally
-	if s:evlib_test_base_object.f_testoutput_isredirectingtoafile()
+	if s:evlib_test_base_object.f_testoutput_isredirectingoutput()
 		" ignore rc for now
 		call s:evlib_test_base_object.f_testoutput_close()
 	endif

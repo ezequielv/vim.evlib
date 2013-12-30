@@ -110,7 +110,7 @@ let s:evlib_test_local_evtest_main_subdir_name = 'evtest'
 " high-level (script-local) test output functions {{{
 
 function! s:EVLibTest_RunUtil_Local_TestOutput_InvokeWithRedir_Start()
-	let l:redirecting_flag = s:evlib_test_base_object.f_testoutput_isredirectingtoafile()
+	let l:redirecting_flag = s:evlib_test_base_object.f_testoutput_isredirectingoutput()
 	let l:startdict = {
 				\		'saved': {
 				\				'redir_active': l:redirecting_flag,
@@ -145,7 +145,7 @@ endfunction
 
 function! s:EVLibTest_RunUtil_Local_TestOutput_FlushVarToCurrentBuffer()
 	if exists( 'g:evlib_test_runutil_testoutput_content' )
-		let l:redirecting_flag = s:evlib_test_base_object.f_testoutput_isredirectingtoafile()
+		let l:redirecting_flag = s:evlib_test_base_object.f_testoutput_isredirectingoutput()
 		" flush redirected output into variable
 		if l:redirecting_flag
 			call s:evlib_test_base_object.f_testoutput_close()
@@ -1313,7 +1313,7 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 				try
 					" one-time initialisations {{{
 					if ( ! l:test_output_init_flag )
-						let l:test_output_file = s:evlib_test_base_object.f_testoutput_optionalgetredirfilename()
+						let l:test_output_file = s:evlib_test_base_object.f_testoutput_optionalgetredirexpression()
 						if ( empty( l:test_output_file ) )
 							" create a temporary file
 							let l:test_output_file = tempname()
