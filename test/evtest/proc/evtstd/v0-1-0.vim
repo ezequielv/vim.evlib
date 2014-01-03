@@ -39,6 +39,22 @@ function! b:EVLibTest_Processor_Invoked_evtstd_TestOutput_WriteTestContextInfo( 
 	return !0
 endfunction
 
+function! b:EVLibTest_Processor_Invoked_evtstd_TestOutput_WriteErrorMessage( function_args )
+	let l:error_message = ( has_key( a:function_args, 'message' ) ? ( a:function_args.message ) : '' )
+
+	" for now, whinge about empty error messages
+	if ( empty( l:error_message ) )
+		return 0
+	endif
+
+	" FIXME: use the equivalent to EVLibTest_TestOutput_OutputLine() {{{
+	echomsg ' '
+	" leave a blank line (just the prefix) if the 'info' element is empty
+	echomsg b:evlib_test_evtest_evtstd_base_object.c_output_lineprefix_string . ( empty( l:error_message ) ? '' : ( 'ERROR: ' . l:error_message ) )
+	" }}}
+	return !0
+endfunction
+
 function! b:EVLibTest_RunUtil_TestOutput_GetLine( lnum )
 	" save previous search
 	let l:saved_register_search = @/
@@ -531,6 +547,7 @@ endfunction
 let g:evlib_test_processor_output = {
 			\		'functions': {
 			\				'f_writetestcontextinfo': function( 'b:EVLibTest_Processor_Invoked_evtstd_TestOutput_WriteTestContextInfo' ),
+			\				'f_writeerrormessage': function( 'b:EVLibTest_Processor_Invoked_evtstd_TestOutput_WriteErrorMessage' ),
 			\				'f_process_output': function( 'b:EVLibTest_RunUtil_TestOutput_Process' ),
 			\			},
 			\	}

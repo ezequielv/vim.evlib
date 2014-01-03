@@ -654,12 +654,26 @@ endfunction
 "                 defined (or not invoked for any other reason);
 "  != 0 (true):  if the function was invoked and returned !0 (true);
 function! s:EVLibTest_ProcessorDef_Invoke_WriteTestContextInfo( processor_defs_data, function_args )
-	let l:retvalue = s:EVLibTest_ProcessorDef_Invoke( a:processor_defs_data, 'f_writetestcontextinfo', a:function_args )
+	silent let l:retvalue = s:EVLibTest_ProcessorDef_Invoke( a:processor_defs_data, 'f_writetestcontextinfo', a:function_args )
 	return ( l:retvalue.invoked && l:retvalue.retvalue )
 endfunction
 " }}}
 
-" user-friendly function to call
+" s:EVLibTest_ProcessorDef_Invoke_WriteErrorMessage() {{{
+" invokes the processor function 'f_writeerrormessage'
+"
+" returns:
+"  == 0 (false): if the function returned 0 (false) or if the function was not
+"                 defined (or not invoked for any other reason);
+"  != 0 (true):  if the function was invoked and returned !0 (true);
+function! s:EVLibTest_ProcessorDef_Invoke_WriteErrorMessage( processor_defs_data, function_args )
+	silent let l:retvalue = s:EVLibTest_ProcessorDef_Invoke( a:processor_defs_data, 'f_writeerrormessage', a:function_args )
+	return ( l:retvalue.invoked && l:retvalue.retvalue )
+endfunction
+" }}}
+
+" user-friendly functions to call {{{
+
 "  s:EVLibTest_ProcessorDef_Invoke_WriteTestContextInfo(), without having to
 "  know the input dictionary structure
 function! s:EVLibTest_ProcessorDef_UserCall_WriteTestContextInfo( processor_defs_data, contextlevel, infostring )
@@ -671,6 +685,19 @@ function! s:EVLibTest_ProcessorDef_UserCall_WriteTestContextInfo( processor_defs
 				\		}
 				\	)
 endfunction
+
+"  s:EVLibTest_ProcessorDef_Invoke_WriteErrorMessage(), without having to
+"  know the input dictionary structure
+function! s:EVLibTest_ProcessorDef_UserCall_WriteErrorMessage( processor_defs_data, errormessage )
+	return s:EVLibTest_ProcessorDef_Invoke_WriteErrorMessage(
+				\		a:processor_defs_data,
+				\		{
+				\			'message': a:errormessage,
+				\		}
+				\	)
+endfunction
+
+" }}}
 
 " }}}
 
@@ -705,8 +732,10 @@ let s:evlib_test_base_object = {
 		\		'f_processordef_invoke':					function( s:funpref . 'EVLibTest_ProcessorDef_Invoke' ),
 		\
 		\		'f_processordef_invoke_writetestcontextinfo':	function( s:funpref . 'EVLibTest_ProcessorDef_Invoke_WriteTestContextInfo' ),
+		\		'f_processordef_invoke_writeerrormessage':		function( s:funpref . 'EVLibTest_ProcessorDef_Invoke_WriteErrorMessage' ),
 		\
 		\		'f_processordef_usercall_writetestcontextinfo':	function( s:funpref . 'EVLibTest_ProcessorDef_UserCall_WriteTestContextInfo' ),
+		\		'f_processordef_usercall_writeerrormessage':	function( s:funpref . 'EVLibTest_ProcessorDef_UserCall_WriteErrorMessage' ),
 		\	}
 " }}}
 
