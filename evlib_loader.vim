@@ -54,9 +54,13 @@ function s:EnableEVLib( paths ) abort
 		if ! isdirectory( l:path_now )
 			continue
 		endif
+		" NOTE: as the path is now known to be a directory (and according to
+		"  the documentation on ':p' under ':h filename-modifiers'), we have a
+		"  pathname separator at the end
 		let l:path_detect_now = l:path_now . 'autoload/evlib.vim'
 		if filereadable( l:path_detect_now )
-			let l:path_found = l:path_now
+			" remove the last separator (causes trouble on windows)
+			let l:path_found = l:path_now[ :-2 ]
 			break
 		endif
 	endfor
