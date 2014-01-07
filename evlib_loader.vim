@@ -59,16 +59,19 @@ function s:EnableEVLib( paths ) abort
 		"  pathname separator at the end
 		let l:path_detect_now = l:path_now . 'autoload/evlib.vim'
 		if filereadable( l:path_detect_now )
-			" remove the last separator (causes trouble on windows)
-			let l:path_found = l:path_now[ :-2 ]
+			let l:path_found = l:path_now
 			break
 		endif
 	endfor
 	if ( strlen( l:path_found ) > 0 )
-		if ( strlen( l:path_found ) > 1 ) && ( l:path_found[ -1: ] == '/' )
-			" get rid of the last '/'
+		" TODO: abstract this condition (and operation?) in a function, so
+		"  that we do not have to do this manually anymore
+		" to_refactor {{{
+		if ( strlen( l:path_found ) > 1 ) && ( stridx( '/\\', l:path_found[ -1: ] ) >= 0 )
+			" get rid of the last pathname separator ('/', '\\')
 			let l:path_found = l:path_found[ :-2 ]
 		endif
+		" }}} to_refactor
 		" prev: fnameescape() not always available -- probably better to avoid
 		"  it: exec 'set runtimepath+=' . fnameescape( l:path_found )
 		let &runtimepath = l:path_found . ( ( strlen( &runtimepath ) > 0 ) ? ( ',' . &runtimepath ) : '' )
