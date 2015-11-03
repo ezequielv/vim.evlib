@@ -40,20 +40,22 @@ filetype off                   " required!
 
 call EVLibTest_Start( 'load library using "vundle"' )
 call EVLibTest_Do_Batch( [
-	\			{ 'group': 'sanity checks' },
-	\			[ 'library not intialised yet (safe check)', '! exists( "*evlib#IsInitialised" )', [ 'skiponfail.all' ] ],
-	\			[ 'vundle not initialised yet', '! EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],
-	\			[ '"vundle" package directory available', 'filereadable( g:mytest_mytesttree_vundledir . "/README.md" )', [ 'skiponfail.all' ] ],
-	\			{ 'group': 'vundle initialisation' },
-	\			[ 'set up runtimepath to include "vundle"', ':set runtimepath+=' . ( exists( '*fnameescape' ) ? fnameescape( g:mytest_mytesttree_vundledir ) : g:mytest_mytesttree_vundledir ), [ 'skiponfail.all' ] ],
-	\			[ 'make sure vundle#*() functions are available', '!empty( globpath( &runtimepath, "autoload/vundle.vim" ) )', [ 'skiponfail.all' ] ],
-	\			[ 'initialise vundle (call vundle#rc())', ':call vundle#rc( g:mytest_mytesttree_bundledir )', [ 'skiponfail.all' ] ],
-	\			[ 'vundle initialised', 'EVLibTest_Util_VundleInitialised()', [ 'skiponfail.all' ] ],
-	\			[ 'add "vundle" package (required by vundle)', ':Bundle "gmarik/vundle"', [ 'skiponfail.all' ] ],
-	\			{ 'group': 'vim.evlib library initialisation' },
-	\			[ 'add "vim.evlib" package (this one)', ':Bundle "ezequielv/vim.evlib"', [ 'skiponfail.all' ] ],
-	\			[ 'finalise plugin setup (required by vundle)', ':filetype plugin indent on', [ 'skiponfail.all' ] ],
-	\			[ 'force execution of "vim.evlib" plugin now', ':runtime plugin/evlib_fwd.vim', [ 'skiponfail.all' ] ],
+	\			{ 'group': 'sanity checks', 'options': [ 'skiponfail.all' ] },
+	\			[ 'library not intialised yet (safe check)', '! exists( "*evlib#IsInitialised" )' ],
+	\			[ 'attempting to load of "vim.evlib" plugin, if accessible', ':runtime! plugin/evlib_fwd.vim' ],
+	\			[ 'library still not intialised (safe check)', '! exists( "*evlib#IsInitialised" )' ],
+	\			[ 'vundle not initialised yet', '! EVLibTest_Util_VundleInitialised()' ],
+	\			[ '"vundle" package directory available', 'filereadable( g:mytest_mytesttree_vundledir . "/README.md" )' ],
+	\			{ 'group': 'vundle initialisation', 'options': [ 'skiponfail.all' ] },
+	\			[ 'set up runtimepath to include "vundle"', ':set runtimepath+=' . ( exists( '*fnameescape' ) ? fnameescape( g:mytest_mytesttree_vundledir ) : g:mytest_mytesttree_vundledir ) ],
+	\			[ 'make sure vundle#*() functions are available', '!empty( globpath( &runtimepath, "autoload/vundle.vim" ) )' ],
+	\			[ 'initialise vundle (call vundle#rc())', ':call vundle#rc( g:mytest_mytesttree_bundledir )' ],
+	\			[ 'vundle initialised', 'EVLibTest_Util_VundleInitialised()' ],
+	\			[ 'add "vundle" package (required by vundle)', ':Bundle "gmarik/vundle"' ],
+	\			{ 'group': 'vim.evlib library initialisation', 'options': [ 'skiponfail.all' ] },
+	\			[ 'add "vim.evlib" package (this one)', ':Bundle "ezequielv/vim.evlib"' ],
+	\			[ 'finalise plugin setup (required by vundle)', ':filetype plugin indent on' ],
+	\			[ 'force execution of "vim.evlib" plugin now', ':runtime! plugin/evlib_fwd.vim' ],
 	\	] )
 
 "+ call EVLibTest_Gen_InfoVarValue( '&runtimepath' )
