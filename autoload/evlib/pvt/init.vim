@@ -8,7 +8,7 @@ if has("eval")
 " inclusion control {{{
 " note: we can't use evlib#pvt#init#ShouldSourceThisModule(), as it will be
 "  defined in this module! (and this module is "special")
-if exists( 'g:evlib_pvt_init_loaded' ) || ( exists( 'g:evlib_pvt_init_disable' ) && g:evlib_disable != 0 )
+if exists( 'g:evlib_pvt_init_loaded' ) || ( exists( 'g:evlib_pvt_init_disable' ) && g:evlib_pvt_init_disable != 0 )
 	finish
 endif
 let g:evlib_pvt_init_loaded = 1
@@ -42,21 +42,11 @@ endfunction
 " example: if ! evlib#pvt#init#ShouldSourceThisModule( 'rtpath' ) ... endif
 " example: if ! evlib#pvt#init#ShouldSourceThisModule( 'pvt_lib' ) ... endif
 function evlib#pvt#init#ShouldSourceThisModule( module_id, ... ) abort
-	let l:setvar_flag = ( ( a:0 > 0 ) ? ( a:1 ) : ( !0 ) )
-	let l:var_pref = 'evlib_' . a:module_id . '_'
-	let l:var_loaded = l:var_pref . 'loaded'
-	let l:var_disable = l:var_pref . 'disable'
-
-	if	( ! evlib#pvt#init#CanLoadLibraryModules() )
-				\	|| ( exists( l:var_loaded ) )
-				\	|| ( exists( l:var_disable ) && ( eval( l:var_disable ) != 0 ) )
-		return 0 " false
-	endif
-	" we should load this module
-	if l:setvar_flag
-		execute 'let ' . l:var_loaded . ' = 1'
-	endif
-	return !0 " true
+	return evlib#pvt#module#ShouldSourceThisModuleWithCondition(
+				\		'evlib_' . a:module_id,
+				\		'evlib#pvt#init#CanLoadLibraryModules()',
+				\		[ 0 ] + a:000
+				\	)
 endfunction
 
 " returns "success"
