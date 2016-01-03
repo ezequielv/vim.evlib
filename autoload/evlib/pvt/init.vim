@@ -8,10 +8,10 @@ if has("eval")
 " inclusion control {{{
 " note: we can't use evlib#pvt#init#ShouldSourceThisModule(), as it will be
 "  defined in this module! (and this module is "special")
-if exists( 'g:evlib_pvt_init_loaded' ) || ( exists( 'g:evlib_pvt_init_disable' ) && g:evlib_pvt_init_disable != 0 )
+if exists( 'g:evlib_autoload_evlib_pvt_init_loaded' ) || ( exists( 'g:evlib_autoload_evlib_pvt_init_disable' ) && g:evlib_autoload_evlib_pvt_init_disable != 0 )
 	finish
 endif
-let g:evlib_pvt_init_loaded = 1
+let g:evlib_autoload_evlib_pvt_init_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{

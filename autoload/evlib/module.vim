@@ -6,7 +6,7 @@
 if has("eval")
 
 " inclusion control {{{
-if ( ! evlib#pvt#init#ShouldSourceThisModule( 'module' ) )
+if ( ! evlib#pvt#init#ShouldSourceThisModule( 'autoload_evlib_module' ) )
 	finish
 endif
 " }}}
@@ -46,7 +46,7 @@ function evlib#module#ShouldSourceThisModuleWithCondition( module_id, condition,
 	return evlib#pvt#module#ShouldSourceThisModuleWithCondition(
 				\		a:module_id,
 				\		a:condition,
-				\		[ function( 's:DebugMessage' ) ] + a:000
+				\		[ function( 'evlib#debug#DebugMessage' ) ] + a:000
 				\	)
 endfunction
 

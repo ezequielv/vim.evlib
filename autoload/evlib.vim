@@ -6,9 +6,11 @@
 if has("eval")
 
 " inclusion control {{{
-if exists( 'g:evlib_loaded' ) || ( exists( 'g:evlib_disable' ) && g:evlib_disable != 0 )
+if exists( 'g:evlib_autoload_evlib_loaded' ) || ( exists( 'g:evlib_disable' ) && g:evlib_disable != 0 )
 	finish
 endif
+let g:evlib_autoload_evlib_loaded = 1
+" MAYBE: move somewhere else, maybe from 's:evlib_local_globalsetup_succeeded's value (below)
 let g:evlib_loaded = 1
 " }}}
 

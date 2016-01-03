@@ -6,7 +6,7 @@
 if has("eval")
 
 " inclusion control {{{
-if ( ! evlib#pvt#init#ShouldSourceThisModule( 'pvt_lib' ) )
+if ( ! evlib#pvt#init#ShouldSourceThisModule( 'autoload_evlib_pvt_lib' ) )
 	finish
 endif
 " }}}

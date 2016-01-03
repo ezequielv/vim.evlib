@@ -8,10 +8,10 @@ if has("eval")
 " inclusion control {{{
 " note: we can't use evlib#pvt#init#ShouldSourceThisModule(), as it will be
 "  defined in this module! (and this module is "special")
-if exists( 'g:evlib_pvt_module_loaded' ) || ( exists( 'g:evlib_pvt_module_disable' ) && g:evlib_pvt_module_disable != 0 )
+if exists( 'g:evlib_autoload_evlib_pvt_module_loaded' ) || ( exists( 'g:evlib_autoload_evlib_pvt_module_disable' ) && g:evlib_autoload_evlib_pvt_module_disable != 0 )
 	finish
 endif
-let g:evlib_pvt_module_loaded = 1
+let g:evlib_autoload_evlib_pvt_module_loaded = 1
 " }}}
 
 " force "compatibility" mode {{{
@@ -56,11 +56,10 @@ let s:evlib_pvt_module_nulldebugfunction = function( 's:EVLib_pvt_module_NullDeb
 " example: if ! evlib#pvt#module#ShouldSourceThisModuleWithCondition( 'myproject_mymodule', 'MyCheckFunction()', [] ) ... endif
 " example: if ! evlib#pvt#module#ShouldSourceThisModuleWithCondition( 'myproject_mymodule', 'MyCheckFunction()', [ !0 ] ) ... endif
 function evlib#pvt#module#ShouldSourceThisModuleWithCondition( module_id, condition, a_000 ) abort
-	unlet! s:evlib_pvt_module_shouldsourcethismodule_debug_function_orig
-	let s:evlib_pvt_module_shouldsourcethismodule_debug_function_orig = ( ( len( a:a_000 ) > 0 ) ? ( a:a_000[ 0 ] ) : 0 )
-	let s:evlib_pvt_module_shouldsourcethismodule_debug_function = ( ( type( s:evlib_pvt_module_shouldsourcethismodule_debug_function_orig ) == type( s:evlib_pvt_module_nulldebugfunction ) ) ? s:evlib_pvt_module_shouldsourcethismodule_debug_function_orig : s:evlib_pvt_module_nulldebugfunction )
+	let l:EVLib_pvt_module_shouldsourcethismodule_debug_function_orig = ( ( len( a:a_000 ) > 0 ) ? ( a:a_000[ 0 ] ) : 0 )
+	let l:EVLib_pvt_module_shouldsourcethismodule_debug_function = ( ( type( l:EVLib_pvt_module_shouldsourcethismodule_debug_function_orig ) == type( s:evlib_pvt_module_nulldebugfunction ) ) ? l:EVLib_pvt_module_shouldsourcethismodule_debug_function_orig : s:evlib_pvt_module_nulldebugfunction )
 	let l:setvar_flag = ( ( len( a:a_000 ) > 1 ) ? ( a:a_000[ 1 ] ) : ( !0 ) )
-	let l:var_pref = a:module_id . '_'
+	let l:var_pref = 'g:' . a:module_id . '_'
 	let l:var_loaded = l:var_pref . 'loaded'
 	let l:var_disable = l:var_pref . 'disable'
 	" note: alternative: use a literal
@@ -69,27 +68,27 @@ function evlib#pvt#module#ShouldSourceThisModuleWithCondition( module_id, condit
 
 	try
 		if ( exists( l:var_loaded ) )
-			call s:evlib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'the variable "' . l:var_loaded . '" already exists. returning 0.' )
+			call l:EVLib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'the variable "' . l:var_loaded . '" already exists. returning 0.' )
 			return 0 " false
 		endif
 		if ( exists( l:var_disable ) && ( eval( l:var_disable ) != 0 ) )
-			call s:evlib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'the variable "' . l:var_disable . '" exists and it is different than 0. returning 0.' )
+			call l:EVLib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'the variable "' . l:var_disable . '" exists and it is different than 0. returning 0.' )
 			return 0 " false
 		endif
 		if ( ! eval( a:condition ) )
-			call s:evlib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'the expression "' . a:condition . '" has evaluated to false. returning 0.' )
+			call l:EVLib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'the expression "' . a:condition . '" has evaluated to false. returning 0.' )
 			return 0 " false
 		endif
-	catch
+	catch " catch all
 		" an exception has been caught
-		call s:evlib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'warning: caught exception when trying to evaluate boolean expressions. returning 0.' )
+		call l:EVLib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'warning: caught exception when trying to evaluate boolean expressions. returning 0.' )
 		return 0 " false
 	endtry
 	" we should load this module
 	if l:setvar_flag
 		execute 'let ' . l:var_loaded . ' = 1'
 	endif
-	call s:evlib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'module ' . a:module_id . ' needs to be processed. returning !0.' )
+	call l:EVLib_pvt_module_shouldsourcethismodule_debug_function( l:debug_message_pref . 'module ' . a:module_id . ' needs to be processed. returning !0.' )
 	return !0 " true
 endfunction
 
