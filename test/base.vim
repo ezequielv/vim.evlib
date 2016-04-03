@@ -430,11 +430,13 @@ function! s:EVLibTest_GenUserScript_Source( scriptname, vars_to_script, vars_fro
 	if l:success
 		try
 			let l:ret_procexittype = 'ok'
-			" TODO: se if we can make the 'source' non-silent, if needed
-			execute 'silent source ' . s:EVLibTest_Local_fnameescape( a:scriptname )
+			" note: the 'silent' prefix could be calculated/retrieved in a
+			"  more sophisticated fashion
+			execute ( s:IsDebuggingEnabled() ? '' : 'silent ' )
+						\	. 'source ' . s:EVLibTest_Local_fnameescape( a:scriptname )
 			call s:DebugMessage( l:debug_message_prefix . 'sourced "' . a:scriptname . '" successfully' )
 		catch
-			call s:DebugMessage( l:debug_message_prefix . 'sourcing "' . a:scriptname . '" threw an exception' )
+			call s:DebugMessage( l:debug_message_prefix . 'sourcing "' . a:scriptname . '" threw an exception: ' . v:exception )
 			let l:ret_procexittype = 'exception'
 		endtry
 	endif
