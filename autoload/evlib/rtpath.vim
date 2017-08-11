@@ -84,9 +84,9 @@ function evlib#rtpath#ExtendRuntimePath( path_or_paths, ... )
 			let l:path_now = fnamemodify( l:path_now, ':p' )
 		endif
 		" get rid of the last '/', if there is one
-		if ( len( l:path_now ) > 1 ) && ( l:path_now[ -1: ] == '/' )
+		while ( len( l:path_now ) > 1 ) && ( l:path_now[ -1: ] == '/' )
 			let l:path_now = l:path_now[ :-2 ]
-		endif
+		endwhile
 		" }}}
 
 		" pre-validation {{{
