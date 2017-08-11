@@ -81,8 +81,22 @@ function evlib#Init() abort
 		" now we can set up a few things
 		if ( l:success )
 			try
+				" TODO: add flags in call to evlib#eval#GetVariableValueDefault()
+				"  (specify 's', to leave the variable set after checking for its value)
+				if evlib#eval#GetVariableValueDefault( 'g:evlib_cfg_init_userscripts_enable', 1 )
+					call evlib#pvt#lib#SourceExternalFiles( 'init/pre/*.vim' )
+				endif
+
 				" for now, we don't care if there were any files here or not
 				call evlib#pvt#lib#SourceEVLibFiles( 'parts/init/*.vim' )
+
+				" TODO: use the variable directly (the previous invocation of
+				"  the modified (to support flags) function
+				"  evlib#eval#GetVariableValueDefault() should have left this
+				"  variable set)
+				if evlib#eval#GetVariableValueDefault( 'g:evlib_cfg_init_userscripts_enable', 1 )
+					call evlib#pvt#lib#SourceExternalFiles( 'init/post/*.vim' )
+				endif
 			catch
 				" an exception has been thrown -> that is not good
 				let l:success = 0
