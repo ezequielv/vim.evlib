@@ -124,12 +124,12 @@ function evlib#rtpath#ExtendRuntimePath( path_or_paths, ... )
 				endif
 				if ( len( l:path_now_to_remove ) > 0 )
 					" remove it if it was present in the list already
-					exec 'set runtimepath-=' . evlib#compat#fnameescape( l:path_now_to_remove )
+					execute 'set runtimepath-=' . evlib#compat#fnameescape( l:path_now_to_remove )
 				endif
 			endfor
 			" }}}
 			" add it in the right place
-			exec 'set runtimepath' . l:stage_elem_now[ 1 ]  . '=' . l:path_now_escaped
+			execute 'set runtimepath' . l:stage_elem_now[ 1 ]  . '=' . l:path_now_escaped
 		endfor
 		" }}}
 	endfor
