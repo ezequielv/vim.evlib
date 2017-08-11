@@ -272,7 +272,7 @@ endfunction
 " }}}
 
 function! s:EVLibTest_RunUtil_Util_JoinCmdArgs( args_list )
-	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\\"" )' ), ' ' )
+	return join( map( filter( copy( a:args_list ), '! empty( v:val )' ), 'escape( v:val, " \\\"|" )' ), ' ' )
 endfunction
 
 function! s:EVLibTest_RunUtil_Local_ListAdjustLenMaybeCopy( list, list_len_adjust )
@@ -1508,12 +1508,12 @@ function! EVLibTest_RunUtil_Command_RunTests( ... )
 									\		'-u', 'NONE',
 									\		'-c', ''
 									\			. 'let g:evlib_test_outputfile="' . l:test_output_file . '"'
-									\			,
-									\		'-c', ''
+									\			. ' | '
 									\			. 'let g:evlib_test_outputfile_truncate=' . l:test_output_runutil_redir_use_variable
-									\			,
-									\		'-c', ''
+									\			. ' | '
 									\			. 'let g:evlib_test_info_contextlevelbase=' . 3
+									\			. ' | '
+									\			. 'let g:evlib_test_runutil_testdir_evlib_rootdir="' . s:evlib_test_runutil_testdir_evlib_rootdir . '"'
 									\			,
 									\	]
 							if s:evlib_test_runutil_debug
