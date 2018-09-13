@@ -26,8 +26,6 @@ function s:DebugMessage( msg )
 endfunction
 " }}}
 
-" TODO: implement unit test
-"
 " args: input, allowed [, own_flags [, default_value [, error_value]]]
 " own_flags:
 "  'x': exclusive values: do not allow any value in 'input' that isn't in 'allowed';
@@ -52,7 +50,7 @@ function evlib#strflags#GetFlagValues( input, allowed, ... )
 	let l:regex_allowed = '\V\(\[' . l:regex_term_allowed_inner_block . ']\)'
 	let l:regex_rest = '\V\(\[^' . l:regex_term_allowed_inner_block . ']\)'
 
-	" TODO: de-duplicate each result string
+	" TODO: de-duplicate each result string (and update unit tests)
 	"-? let l:result_rest = substitute( a:input, l:regex_rest, '\1', 'g' )
 	let l:result_rest = substitute( a:input, l:regex_allowed, '', 'g' )
 	let l:result_allowed = substitute( a:input, l:regex_rest, '', 'g' )
