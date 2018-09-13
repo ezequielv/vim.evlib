@@ -41,6 +41,10 @@ endif
 
 if s:debug_this_script
 
+	function evlib#debug#IsDebugEnabled()
+		return !0
+	endfunction
+
 	function evlib#debug#DebugMessage( msg )
 		let cmdpref_1 = ( exists( ':unsilent' ) ? ':unsilent ' : '' )
 		let l:msgpref = ( ( exists( '*strftime' ) ) ? ( ' ' . strftime( '[%Y.%m.%d %H:%M:%S]' ) ) : '' )
@@ -48,6 +52,10 @@ if s:debug_this_script
 	endfunction
 
 else
+
+	function evlib#debug#IsDebugEnabled()
+		return 0
+	endfunction
 
 	function evlib#debug#DebugMessage( msg )
 	endfunction
