@@ -27,6 +27,12 @@ endfunction
 " }}}
 
 " TODO: unit test
+" NOTE: [api] new in v0.3.0
+function evlib#stdtype#StrTrim( src )
+	return substitute( a:src, '\v%(%(^\s+)|%(\s+$))', '', 'g' )
+endfunction
+
+" TODO: unit test
 function evlib#stdtype#AsTopLevelList( val )
 	return (
 				\		( type( a:val ) == type( [] ) )
