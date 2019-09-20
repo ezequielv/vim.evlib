@@ -45,6 +45,27 @@ function evlib#strset#IsStrSet( a_set, ... )
 	return l:result
 endfunction
 
+function s:validate_is_set( a_set )
+	if ( ! evlib#strset#IsStrSet( a:a_set ) )
+		" TODO: make a function to throw exceptions from evlib
+		echoerr printf( 'evlib#strset#IsStrSet() returned false. object=%s', string( a:a_set ) )
+	endif
+endfunction
+
+" TODO: implement unit test
+" NOTE: [api] new in v0.3.0
+function evlib#strset#NumElements( a_set )
+	call s:validate_is_set( a:a_set )
+	return len( a:a_set )
+endfunction
+
+" TODO: implement unit test
+" NOTE: [api] new in v0.3.0
+function evlib#strset#IsEmpty( a_set )
+	call s:validate_is_set( a:a_set )
+	return empty( a:a_set )
+endfunction
+
 " TODO: implement unit test
 "
 " args: 
