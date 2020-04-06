@@ -45,10 +45,18 @@ if s:debug_this_script
 		return !0
 	endfunction
 
+	let s:debugmessage_has_strftime = exists( '*strftime' )
+	let g:evlib#debug#debuglines = []
+
 	function evlib#debug#DebugMessage( msg )
-		let cmdpref_1 = ( exists( ':unsilent' ) ? ':unsilent ' : '' )
-		let l:msgpref = ( ( exists( '*strftime' ) ) ? ( ' ' . strftime( '[%Y.%m.%d %H:%M:%S]' ) ) : '' )
-		execute cmdpref_1 . 'echomsg "[DEBUG]" . l:msgpref . ": " . a:msg'
+		" quick & dirty: only log messages when the list variable is defined
+		" and of the right time (list).
+		" idea: if !( exists( 'g:evlib#debug#debuglines' ) && ... )
+		if type( g:evlib#debug#debuglines ) != 3 | return 0 | endif
+
+		let l:msgpref = ( s:debugmessage_has_strftime ? strftime( '[%Y.%m.%d %H:%M:%S] ' ) : '' )
+		call add( g:evlib#debug#debuglines, l:msgpref . a:msg )
+		return !0
 	endfunction
 
 else
