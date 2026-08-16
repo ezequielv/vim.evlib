@@ -36,6 +36,7 @@ endif
 "  so that the comparisons done by this script can be done quickly and
 "  safely
 if ( s:debug_this_script != '0' )
+	unlet s:debug_this_script
 	let s:debug_this_script = 1
 endif
 
