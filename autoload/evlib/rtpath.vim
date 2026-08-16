@@ -160,7 +160,20 @@ function evlib#rtpath#CheckVimVersion( vim_version, ... )
 	" note: patch level is only meaningful when the major+minor matches the
 	"  currently running vim
 	if ( l:vim_patchlevel > 0 ) && ( v:version == a:vim_version )
-		if !( has( 'patch' . l:vim_patchlevel ) )
+		" see ':h has-patch' on vim versions after vim-7.4.237.
+		let l:vim_ver_major = a:vim_version / 100
+		let l:vim_ver_minor = a:vim_version % 100
+		let l:vim_patch_str = 'patch' .
+					\	(	(	( ( v:version > 704 ) )
+					\			||
+					\			( ( v:version == 704 ) && has( 'patch237' ) )
+					\		)
+					\		? ( '-' . l:vim_ver_major . '.' . l:vim_ver_minor . '.' )
+					\		: ''
+					\	) .
+					\	l:vim_patchlevel
+
+		if !( has( 'patch' . l:vim_patch_str ) )
 			return 0
 		endif
 	endif
