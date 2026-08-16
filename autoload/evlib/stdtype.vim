@@ -118,6 +118,15 @@ function! evlib#stdtype#ExtendInOrderOrGetRef( container_list, ... ) abort
 	return l:container_out
 endfunction
 
+function! evlib#stdtype#ListSetDefaultElements( srcdst, defvals )
+	let [l:len_dst, l:len_src] = [len( a:srcdst ), len( a:defvals )]
+	if l:len_dst < l:len_src
+		let l:len_diff = l:len_src - l:len_dst
+		call extend( a:srcdst, a:defvals[ l:len_dst : ( l:len_dst + l:len_diff - 1 ) ] )
+	endif
+	return a:srcdst
+endfunction
+
 " boiler plate -- epilog {{{
 
 " restore old "compatibility" options {{{
