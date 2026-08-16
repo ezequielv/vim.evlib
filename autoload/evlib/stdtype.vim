@@ -21,19 +21,19 @@ set cpo&vim
 " }}} boiler plate -- prolog
 
 " support functions {{{
-function s:DebugMessage( msg )
+function! s:DebugMessage( msg )
 	return evlib#debug#DebugMessage( a:msg )
 endfunction
 " }}}
 
 " TODO: unit test
 " NOTE: [api] new in v0.3.0
-function evlib#stdtype#StrTrim( src )
+function! evlib#stdtype#StrTrim( src )
 	return substitute( a:src, '\v%(%(^\s+)|%(\s+$))', '', 'g' )
 endfunction
 
 " TODO: unit test
-function evlib#stdtype#AsTopLevelList( val )
+function! evlib#stdtype#AsTopLevelList( val )
 	return (
 				\		( type( a:val ) == type( [] ) )
 				\		?	a:val
